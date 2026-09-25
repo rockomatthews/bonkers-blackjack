@@ -1,1 +1,9 @@
-{ "framework": "nextjs", "buildCommand": "npm run build" }
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "git": {
+    "deploymentEnabled": {
+      "codex/crypto-private": false
+    }
+  }
+}
