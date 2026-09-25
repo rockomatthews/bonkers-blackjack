@@ -3,6 +3,9 @@ import type { Transfer } from "../shared/protocol";
 export type Account = {
   id: string;
   name: string;
+  nameChanged: boolean;
+  avatar: string;
+  avatarId: string | null;
   balance: number;
   nonce: number;
   activeTable: string | null;
@@ -30,6 +33,8 @@ export type TableView = {
   seats: ({
     id: string;
     name: string;
+    avatar: string;
+    avatarId: string | null;
     connected: boolean;
     bet: number;
     fee: number;

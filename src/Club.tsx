@@ -37,6 +37,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import QRCode from "qrcode";
+import { Avatar, ProfilePage } from "./Profile";
 import { FEE_POLICY, roundFee } from "../shared/fees";
 import { money, cardLabel, suit, total, hash } from "../shared/game";
 import {
@@ -165,6 +166,7 @@ export default function Club() {
   const roomViewport = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState("home"),
     [tableId, setTableId] = useState("bonkers-room");
+  const [profileId, setProfileId] = useState("");
   const [identity, setIdentity] = useState<Identity | null>(null),
     identityRef = useRef<Identity | null>(null);
   const [account, setAccount] = useState<Account | null>(null),
@@ -195,8 +197,7 @@ export default function Club() {
     [destination, setDestination] = useState("demo:my-wallet");
   const [selectedTransfer, setSelectedTransfer] = useState<string | null>(null),
     [qr, setQr] = useState("");
-  const [alias, setAlias] = useState(""),
-    [consent, setConsent] = useState(false),
+  const [consent, setConsent] = useState(false),
     [privateName, setPrivateName] = useState(""),
     [sessionLimit, setSessionLimit] = useState("500");
   const updateAccount = useCallback((a: Account | null) => {
@@ -215,6 +216,7 @@ export default function Club() {
       setMenu(false);
       window.scrollTo(0, 0);
       if (parts[0] === "table") setTableId(parts[1] || "bonkers-room");
+      if (parts[0] === "profile") setProfileId(parts[1] || "");
     };
     route();
     window.addEventListener("hashchange", route);
@@ -395,7 +397,7 @@ export default function Club() {
       );
       const publicKey = await crypto.subtle.exportKey("jwk", pair.publicKey),
         privateKey = await crypto.subtle.exportKey("jwk", pair.privateKey);
-      const value = await api("demo-login", { name: alias, publicKey });
+      const value = await api("demo-login", { publicKey });
       const id = { token: value.token, privateKey, publicKey };
       identityRef.current = id;
       setIdentity(id);
@@ -406,7 +408,7 @@ export default function Club() {
       if (result) {
         setModal(null);
         if (page !== "table") go("lobby");
-        setNotice("You’re in. $1,000 in play money is ready.");
+        setNotice(`You’re in as ${value.account.name}. Visit Your profile to choose your permanent name.`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not join");
@@ -532,10 +534,10 @@ export default function Club() {
               </button>
               <button
                 className="icon-button profile"
-                onClick={() => go("account")}
-                aria-label="Your account"
+                onClick={() => go("profile")}
+                aria-label="Your profile"
               >
-                <UserRound />
+                <Avatar profile={account} />
               </button>
             </>
           ) : (
@@ -953,8 +955,8 @@ export default function Club() {
                                   </div>
                                 ))}
                               </div>
-                              <div className="player-avatar">
-                                {s.name.slice(0, 2).toUpperCase()}
+                              <button className="player-avatar" aria-label={`View ${s.name}'s profile`} onClick={() => go("profile/" + s.id)}>
+                                <Avatar profile={s} />
                                 <span
                                   className={
                                     s.connected
@@ -962,7 +964,7 @@ export default function Club() {
                                       : "status-dot offline"
                                   }
                                 />
-                              </div>
+                              </button>
                               <strong>
                                 {s.name}
                                 {s.id === account?.id ? " (you)" : ""}
@@ -1565,6 +1567,7 @@ export default function Club() {
             )}
           </section>
         )}
+        {page === "profile" && <ProfilePage key={profileId || "own"} account={account} profileId={profileId} busy={busy} api={api} command={command} onJoin={() => setModal("login")} />}
         {page === "account" && (
           <section className="section reading">
             <div className="eyebrow">YOUR CORNER OF THE CLUB</div>
@@ -1579,6 +1582,7 @@ export default function Club() {
             </h1>
             {account ? (
               <>
+                <a className="account-profile-link panel" href="#profile"><div className="account-avatar"><Avatar profile={account}/></div><span><strong>{account.name}</strong><small>{account.nameChanged ? "View your profile · edit your image" : "Choose your one-time username · edit your image"}</small></span><ArrowRight /></a>
                 <div className="account-grid">
                   <div className="panel">
                     <Wallet />
@@ -1651,6 +1655,7 @@ export default function Club() {
           "fairness",
           "history",
           "account",
+          "profile",
         ].includes(page) && (
           <section className="section">
             <h2>This seat doesn’t exist.</h2>
@@ -1668,6 +1673,7 @@ export default function Club() {
           <a href="#fairness">Fairness</a>
           <a href="#history">History</a>
           <a href="#account">Account</a>
+          <a href="#profile">Your profile</a>
           <span>18+ · PLAY MONEY ONLY</span>
         </div>
         <small>
@@ -1683,23 +1689,10 @@ export default function Club() {
             </p>
           ) : (
             <p>
-              Pick a name. Pull up a chair. We’ll start you with $1,000 in play
-              money.
+              Pull up a chair. We’ll give you a random fun name and $1,000 in play money. Visit your profile to choose your permanent username once.
             </p>
           )}
           <form onSubmit={login}>
-            <label>
-              Your table name
-              <input
-                required
-                minLength={2}
-                maxLength={24}
-                placeholder="Something memorable"
-                value={alias}
-                onChange={(e) => setAlias(e.target.value)}
-                autoComplete="nickname"
-              />
-            </label>
             <label className="checkbox">
               <input
                 type="checkbox"

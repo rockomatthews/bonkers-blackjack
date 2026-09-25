@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, randomInt } from "node:crypto";
 import {
   act,
   allowed,
@@ -18,7 +18,9 @@ import {
 } from "../shared/protocol";
 import { FEE_POLICY, LEGACY_FEE_POLICY, roundFee } from "../shared/fees";
 import type { Account, Table, Store } from "./store";
-export function service(data: Store) {
+import { AVATARS, nameError, nameKey, normalizeName, type PublicProfile } from "../shared/profiles";
+import { normalizeAvatar, type SaveAvatar } from "./avatars";
+export function service(data: Store, saveAvatar?: SaveAvatar) {
   const ACTION_MS = Number(process.env.ACTION_MS ?? 25000),
     BET_MS = Number(process.env.BET_MS ?? 15000);
   const seed = () => randomBytes(32).toString("hex");
@@ -93,6 +95,9 @@ export function service(data: Store) {
     return {
       id: a.id,
       name: a.name,
+      nameChanged: a.nameChanged ?? false,
+      avatar: a.avatar ?? "cosmic",
+      avatarId: a.avatarId ?? null,
       balance: a.balance,
       nonce: a.nonce,
       session: a.session,
@@ -121,6 +126,8 @@ export function service(data: Store) {
           ? {
               id,
               name: data.accounts[id].name,
+              avatar: data.accounts[id].avatar ?? "cosmic",
+              avatarId: data.accounts[id].avatarId ?? null,
               connected: Date.now() - (data.presence[id]?.at ?? 0) < 12000,
               bet: t.bets[id]?.bet ?? 0,
               fee: t.bets[id]?.fee ?? 0,
@@ -304,9 +311,45 @@ export function service(data: Store) {
     a.transfers.unshift(transfer);
     return transfer;
   }
-  function apply(a: Account, e: SignedCommand) {
+  function profile(id: string): PublicProfile {
+    const a = data.accounts[id];
+    if (!a) fail("Profile not found");
+    return {id: a.id, name: a.name, avatar: a.avatar ?? "cosmic", avatarId: a.avatarId ?? null, nameChanged: a.nameChanged ?? false};
+  }
+  function nameAvailability(value: string, ownerId: string) {
+    const name = normalizeName(value), reason = nameError(name);
+    if (reason) return {available:false, reason, name};
+    const taken = Object.values(data.accounts).some(a => a.id !== ownerId && nameKey(a.name) === nameKey(name));
+    return {available:!taken, reason:taken ? "That name is already taken." : "Available. Yours if you want it.", name};
+  }
+  async function apply(a: Account, e: SignedCommand) {
     const { kind, payload: p, tableId } = e.command,
       t = data.tables[tableId];
+    if (kind === "claim-name") {
+      if (a.nameChanged) fail("Your one name change has already been used.");
+      const result = nameAvailability(String(p.name ?? ""), a.id);
+      if (!result.available) fail(result.reason);
+      if (nameKey(result.name) === nameKey(a.name)) fail("Choose a different name for your one name change.");
+      if (Object.values(data.tables).some(t => t.bets[a.id] && !t.settled))
+        fail("Finish your current round before choosing your name.");
+      a.name = result.name;
+      a.nameChanged = true;
+      return profile(a.id);
+    }
+    if (kind === "set-avatar") {
+      if (!AVATARS.some(v => v.id === p.avatar)) fail("Unknown avatar");
+      a.avatar = String(p.avatar);
+      delete a.avatarId;
+      return profile(a.id);
+    }
+    if (kind === "upload-avatar") {
+      if (!saveAvatar) fail("Image uploads are not available.");
+      const bytes = await normalizeAvatar(p.image);
+      const id = randomUUID();
+      await saveAvatar!(a.id, id, bytes);
+      a.avatarId = id;
+      return profile(a.id);
+    }
     if (kind === "authorize") {
       const limit = int(p.limit, 100, 5000000);
       a.session = { limit, spent: 0, expiresAt: Date.now() + 3600000 };
@@ -468,14 +511,17 @@ export function service(data: Store) {
     if (c.nonce !== a.nonce) fail("Stale command. Refresh and try again.");
     if (!(await verifySignature(a.publicKey, e)))
       fail("Invalid command signature");
-    const result = apply(a, e);
+    const result = await apply(a, e);
     a.nonce++;
     return { account: accountView(a), result };
   }
   async function login(p: Record<string, unknown>) {
-    const name = String(p.name ?? "").trim();
-    if (name.length < 2 || name.length > 24)
-      fail("Choose a display name of 2–24 characters");
+    // Names are always assigned by the server; signup cannot bypass the claim.
+    const adjectives = ["Cosmic", "Disco", "Lucky", "Lunar", "Wild", "Turbo", "Sneaky", "Velvet"];
+    const nouns = ["Goblin", "Raccoon", "Pickle", "Comet", "Walrus", "Waffle", "Gecko", "Noodle"];
+    let name: string;
+    do { name = adjectives[randomInt(adjectives.length)] + nouns[randomInt(nouns.length)] + "_" + randomBytes(3).toString("hex"); }
+    while (Object.values(data.accounts).some(a => nameKey(a.name) === nameKey(name)));
     if (Object.keys(data.accounts).length >= 1000)
       fail("Demo account capacity reached");
     const publicKey = p.publicKey as JsonWebKey;
@@ -494,6 +540,8 @@ export function service(data: Store) {
       token,
       name,
       publicKey,
+      nameChanged: false,
+      avatar: AVATARS[randomInt(AVATARS.length)].id,
       balance: 100000,
       nonce: 0,
       session: { limit: 0, spent: 0, expiresAt: 0 },
@@ -506,5 +554,5 @@ export function service(data: Store) {
   const auth = (token: string | null) =>
     Object.values(data.accounts).find((a) => a.token === token) ??
     fail("Sign in to continue");
-  return { tick, command, login, auth, accountView, view, reserved };
+  return { tick, command, login, auth, accountView, view, reserved, profile, nameAvailability };
 }

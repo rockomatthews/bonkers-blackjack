@@ -5,6 +5,9 @@ export type Account = {
   token: string;
   name: string;
   publicKey: JsonWebKey;
+  nameChanged?: boolean;
+  avatar?: string;
+  avatarId?: string;
   balance: number;
   nonce: number;
   session: { limit: number; spent: number; expiresAt: number };

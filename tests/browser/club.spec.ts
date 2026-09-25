@@ -1,8 +1,8 @@
+import sharp from "sharp";
 import { test, expect, type Page } from "@playwright/test";
 async function join(page: Page, name: string) {
   await page.goto("/");
   await page.getByRole("button", { name: "Join the club" }).click();
-  await page.getByLabel("Your table name").fill(name);
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Let’s play" }).click();
   await expect(page).toHaveURL(/#lobby/);
@@ -195,11 +195,55 @@ test("a visitor can join directly from an empty orbital seat", async ({ page }) 
   await expect(seat).toBeEnabled();
   await expect(page.getByRole("button", {name:"Leave seat",exact:true})).toHaveCount(0);
   await seat.click();
-  await page.getByLabel("Your table name").fill("Orbital visitor");
   await page.getByRole("checkbox").check();
   await page.getByRole("button",{name:"Let’s play"}).click();
   await expect(page).toHaveURL(/#table\/bonkers-room/);
   await seat.click();
-  await expect(page.locator(".seat.mine strong")).toContainText("Orbital visitor");
+  await expect(page.locator(".seat.mine strong")).toContainText("(you)");
   await expect(page.locator(".fee-disclosure")).toContainText("$25.06 total");
+});
+
+
+test("profiles enforce a single unique name and support public avatars and uploads", async ({page,browser}) => {
+  await join(page,"Profile tester");
+  await page.getByRole("button", {name:"Your profile",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"One change. Make it Bonkers."})).toBeVisible();
+  const chosen="CosmicGoose_"+Date.now().toString().slice(-8);
+  await page.getByLabel("Choose your username").fill(chosen);
+  await expect(page.getByText("Available. Yours if you want it.",{exact:true})).toBeVisible();
+  await page.getByRole("checkbox",{name:"I understand I can only change my username once."}).check();
+  await page.getByRole("button",{name:"Claim username permanently"}).click();
+  await expect(page.getByRole("heading",{name:"Your name is locked in."})).toBeVisible();
+  await expect(page.getByLabel("Choose your username")).toHaveCount(0);
+  await page.getByRole("button",{name:"Use Eight lucky hands avatar"}).click();
+  await expect(page.getByRole("button",{name:"Use Eight lucky hands avatar"})).toHaveAttribute("aria-pressed","true");
+  const png=await sharp({create:{width:50,height:80,channels:3,background:"#df83d8"}}).png().toBuffer();
+  await page.getByLabel("Upload profile image").setInputFiles({name:"profile.png",mimeType:"image/png",buffer:png});
+  await expect(page.getByAltText("New profile image preview")).toBeVisible();
+  await page.getByRole("button",{name:"Save profile image"}).click();
+  await expect(page.getByText("Profile image saved.",{exact:true})).toBeVisible();
+  const imageSrc=await page.locator(".profile-portrait img").getAttribute("src");
+  expect(imageSrc).toMatch(/^\/api\/v1\/avatars\/[a-f0-9-]+$/);
+  const response=await page.request.get(imageSrc!);expect(response.ok()).toBe(true);expect(response.headers()["content-type"]).toBe("image/webp");
+  await page.reload();
+  await expect(page.getByRole("heading",{name:chosen,exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Your name is locked in."})).toBeVisible();
+  const id=await page.evaluate(async()=>{const auth=JSON.parse(localStorage.getItem("bonkers-demo-identity")!);return (await fetch("/api/v1/account",{headers:{Authorization:"Bearer "+auth.token}}).then(r=>r.json())).id;});
+  await page.screenshot({path:"docs/screenshots/profile-desktop.png",fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:"docs/screenshots/profile-mobile.png",fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const context=await browser.newContext();
+  try {
+    const other=await context.newPage();
+    await other.goto("/#profile/"+id);
+    await expect(other.getByRole("heading",{name:chosen,exact:true})).toBeVisible();
+    await expect(other.getByLabel("Upload profile image")).toHaveCount(0);
+    await expect(other.locator(".profile-portrait img")).toHaveAttribute("src",imageSrc!);
+    await join(other,"Other profile tester");
+    await other.getByRole("button",{name:"Your profile",exact:true}).click();
+    await other.getByLabel("Choose your username").fill(chosen.toUpperCase());
+    await expect(other.getByText("That name is already taken.",{exact:true})).toBeVisible();
+    await expect(other.getByRole("button",{name:"Claim username permanently"})).toBeDisabled();
+  } finally {await context.close();}
 });

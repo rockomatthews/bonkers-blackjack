@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { transaction } from "../../../../server/database";
+import { transaction, readAvatar } from "../../../../server/database";
 import { service } from "../../../../server/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +17,11 @@ async function handle(req: NextRequest) {
         },
         { headers: { "Cache-Control": "no-store" } },
       );
+    if (req.method === "GET" && req.nextUrl.pathname.startsWith("/api/v1/avatars/")) {
+      const bytes = await readAvatar(req.nextUrl.pathname.slice("/api/v1/avatars/".length));
+      return bytes ? new Response(new Uint8Array(bytes), {headers:{"Content-Type":"image/webp", "Cache-Control":"public, max-age=3600", "X-Content-Type-Options":"nosniff"}})
+        : new Response("Image not found", {status:404});
+    }
     if (req.method === "POST") {
       const origin = req.headers.get("origin");
       if (origin && new URL(origin).host !== req.headers.get("host"))
@@ -33,8 +38,8 @@ async function handle(req: NextRequest) {
     const body = text ? JSON.parse(text) : {};
     const path = req.nextUrl.pathname.replace("/api/v1/", ""),
       token = req.headers.get("authorization")?.replace(/^Bearer /, "") ?? null;
-    const response = await transaction(async (data) => {
-      const s = service(data);
+    const response = await transaction(async (data, saveAvatar) => {
+      const s = service(data, saveAvatar);
       s.tick();
       if (req.method === "GET" && path === "health")
         return {
@@ -69,6 +74,11 @@ async function handle(req: NextRequest) {
           account: a ? s.accountView(a) : null,
         };
       }
+      if (req.method === "GET" && path === "profile-name") {
+        const a = s.auth(token);
+        return s.nameAvailability(req.nextUrl.searchParams.get("name") ?? "", a.id);
+      }
+      if (req.method === "GET" && path.startsWith("profiles/")) return s.profile(path.slice("profiles/".length));
       if (req.method === "GET" && path === "account")
         return s.accountView(s.auth(token));
       if (req.method === "POST" && path === "commands")

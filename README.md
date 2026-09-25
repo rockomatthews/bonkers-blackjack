@@ -28,7 +28,7 @@ No environment variables are needed for a single-process local demo. Local state
 1. Import this GitHub repository into Vercel. Framework: **Next.js**, root: repository root. Use Node.js 24.
 2. The deployed landing page and guides work immediately. Without a database, shared-table signup is disabled and tables show an opening-soon state.
 3. Create/connect a **dedicated Supabase database** from the Vercel project's Storage/Marketplace integration, as planned by the owner. Do not repurpose another product's database.
-4. In Supabase SQL Editor, run [`database/schema.sql`](database/schema.sql). It creates only `bonkers_private.demo_state`; the schema is not exposed through the Data API, RLS is enabled, and anonymous/authenticated access is revoked.
+4. In Supabase SQL Editor, run [`database/schema.sql`](database/schema.sql). It creates `bonkers_private.demo_state` and `bonkers_private.profile_images`; the schema is not exposed through the Data API, RLS is enabled, and anonymous/authenticated access is revoked.
 5. Set **`POSTGRES_URL`** in Vercel to the project's transaction-pooler connection URL from Supabase's Connect dialog. The integration may supply this already. `DATABASE_URL` is supported as a fallback. Use the actual provided pooler host; do not invent it. Use certificate-validated TLS (`sslmode=verify-full`, with Supabase's CA if needed); never disable certificate verification. Never add a `NEXT_PUBLIC_` prefix to credentials.
 The server and setup script automatically trust the public Supabase Root 2021 CA for Supabase database/pooler hosts while verifying both certificate and hostname. The bundled certificate expires in April 2031; review it when Supabase rotates its CA. Other PostgreSQL hosts retain their provided TLS settings.
 
@@ -76,3 +76,11 @@ The owner's `pokerRoom.png` is preserved byte-for-byte in `public/` and used as 
 New signed wagers acknowledge `initial-wager-25bps-floor-cent-v1`: 0.25% of the initial wager, rounded down to a cent, charged once at wager lock. A $5 wager costs $5.01, $25 costs $25.06, and $100 costs $100.25. Splits and doubles add only their extra stake. The fee applies to wins, losses, naturals, and pushes, counts against the authorized session budget, and is included in the displayed net result. It is additional to the ordinary blackjack house edge, and is revenue rather than guaranteed per-round profit. All amounts remain play money.
 
 Version 2 round receipts include fees and verify them against signed wager pricing. Existing version 1 receipts still verify, and wagers already locked before this release finish without a retroactive charge. Optional stored fee fields require no SQL migration. Real-money contracts remain research prototypes and do not implement this fee policy.
+
+## Player profiles
+
+New demo accounts receive a unique random username. Players may claim one available permanent name from their profile; names are case-insensitive, normalized, and contain 3–24 letters, numbers, spaces, underscores, or hyphens. The server enforces the one-change limit and rejects collisions atomically. Existing accounts keep their names and receive one change. Names cannot change while a wager is unsettled.
+
+Profiles have stable, shareable account-ID links. Preset avatars and uploaded profile images remain editable after the name is locked. Uploads are resized and re-encoded as 160px WebP images on the server, stored separately from game state, and served through an image endpoint. Public profiles expose only the player ID, username, avatar, and name-change status.
+
+For an existing database, apply `database/profile-images.sql` before deploying this feature. Fresh installations use `database/schema.sql`, which includes both private tables. Neither table grants client database access. Local development saves images under the ignored data directory. Profile names and images are public; balances, session keys, and wallet information are not part of public profiles.

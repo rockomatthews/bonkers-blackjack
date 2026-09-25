@@ -2935,3 +2935,55 @@ footer > small {
 .orbital-room .hand-cards .card:not(:first-child) { margin-left: -12px; }
 .orbital-room .player-hand { background: transparent; }
 .orbital-room .player-hand.current-hand { background: #0b152bd9; }
+
+/* Player profiles */
+.avatar-art { display: grid; place-items: center; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; font-size: 1.35em; }
+.avatar-art img { width: 100%; height: 100%; object-fit: cover; }
+.player-avatar { padding: 0; overflow: visible; cursor: pointer; }
+.profile.icon-button { padding: 0; border-radius: 50%; width: 38px; height: 38px; }
+.profile-page { max-width: 1160px; margin: auto; }
+.profile-banner { background: linear-gradient(110deg,#1b1833dd,#4425509c),url('/pokerRoom.png') center 21% / cover; padding: 30px 38px 70px; border: 1px solid #b48ac447; border-radius: 20px; margin-top: 24px; min-height: 220px; display: flex; justify-content: space-between; }
+.profile-banner > span { font-size: 10px; letter-spacing: .2em; color: #e2caed; }
+.profile-banner > b { font: 900 38px/.95 var(--font-heading); color: #eedbba; text-align: right; }
+.profile-identity { position: relative; display: flex; align-items: center; gap: 24px; padding: 0 30px 32px; margin-top: -46px; }
+.profile-portrait { width: 140px; height: 140px; flex-shrink: 0; border: 6px solid #121318; border-radius: 32px; font-size: 60px; box-shadow: 0 12px 35px #0007; }
+.profile-identity h1 { font: 700 clamp(28px,4vw,52px)/1.1 var(--font-heading); overflow-wrap: anywhere; margin: 8px 0; }
+.profile-identity .eyebrow { margin-top: 54px; font-size: 9px; }
+.profile-identity p { font-size: 12px; color: #b8b1c0; }
+.profile-badge { margin-left: auto; white-space: nowrap; font-size: 9px; letter-spacing: .1em; border: 1px solid #a080534f; padding: 10px; border-radius: 20px; color: #d9b675; }
+.profile-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.profile-edit-grid h2 { font: 700 32px var(--font-heading); margin-bottom: 16px; }
+.profile-edit-grid .panel { padding: 30px; background: linear-gradient(150deg,#202027,#15161c); border-color: #66567150; }
+.profile-edit-grid p { font-size: 13px; line-height: 1.6; margin: 12px 0 20px; }
+.name-panel form { display: grid; gap: 10px; }
+.name-panel .name-available { color: #a8e1ba; }
+.locked-name { font-size: 24px !important; color: #dfbaef; overflow-wrap: anywhere; }
+.avatar-picker { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px 10px; margin: 24px 0; }
+.avatar-picker button { border: 1px solid transparent; padding: 5px; border-radius: 12px; background: transparent; color: #cbc3d4; }
+.avatar-picker button[aria-pressed=true] { border-color: #d6a8ee; background: #51356370; }
+.avatar-picker .avatar-art { width: 58px; height: 58px; margin: auto; border-radius: 16px; font-size: 32px; }
+.avatar-picker small { font-size: 9px; display: block; margin-top: 6px; line-height: 1.4; }
+.upload-label { display: grid; gap: 12px; font-size: 12px; }
+.upload-label input { font-size: 11px; max-width: 100%; }
+.avatar-preview { display: flex; align-items: center; gap: 18px; margin-top: 16px; }
+.avatar-preview img { border-radius: 20px; }
+.profile-feedback { padding: 14px; margin-top: 20px; border: 1px solid #659271; color: #b9dfc3; border-radius: 8px; overflow-wrap: anywhere; }
+.profile-links { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-top: 28px; }
+.account-profile-link { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; }
+.account-avatar { width: 60px; height: 60px; border-radius: 18px; font-size: 30px; flex-shrink: 0; }
+.account-profile-link small { display: block; color: #b6a2c2; margin-top: 7px; font-size: 11px; }
+.account-profile-link > svg { margin-left: auto; }
+@media(max-width:800px) {
+  .profile-edit-grid { grid-template-columns: 1fr; }
+  .profile-banner { padding: 22px 20px 65px; }
+  .profile-banner > b { font-size: 29px; }
+  .profile-banner > span { max-width: 120px; line-height: 1.8; font-size: 8px; }
+  .profile-identity { padding: 0 8px 26px; gap: 14px; align-items: flex-start; }
+  .profile-portrait { width: 92px; height: 92px; border-radius: 24px; font-size: 38px; }
+  .profile-badge { display: none; }
+  .profile-identity .eyebrow { margin-top: 54px; font-size: 7px; }
+  .profile-edit-grid .panel { padding: 22px; }
+  .avatar-picker .avatar-art { width: 48px; height: 48px; font-size: 27px; }
+  .avatar-preview { flex-wrap: wrap; }
+  .account-profile-link strong { overflow-wrap: anywhere; }
+}

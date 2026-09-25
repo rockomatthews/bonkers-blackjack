@@ -9,6 +9,7 @@ import { resolve } from "node:path";
 import { Pool } from "pg";
 import { postgresConfig } from "./postgres";
 import type { Store } from "./store";
+import { validAvatarId, type SaveAvatar } from "./avatars";
 const globals = globalThis as unknown as {
   bonkersPool?: Pool;
   bonkersQueue?: Promise<unknown>;
@@ -22,7 +23,7 @@ export const emptyStore = (): Store => ({
   presence: {},
 });
 export async function transaction<T>(
-  fn: (data: Store) => Promise<T> | T,
+  fn: (data: Store, saveAvatar: SaveAvatar) => Promise<T> | T,
 ): Promise<T> {
   if ((process.env.APP_MODE ?? "demo") !== "demo")
     throw Error("Real-money mode is unavailable in this release.");
@@ -45,7 +46,10 @@ export async function transaction<T>(
         "select state from bonkers_private.demo_state where id=1 for update",
       );
       const data = result.rows[0].state as Store;
-      const value = await fn(data);
+      const value = await fn(data, async (ownerId, id, bytes) => {
+        await client.query("insert into bonkers_private.profile_images(id,owner_id,image) values($1,$2,$3)", [id,ownerId,bytes]);
+        await client.query("delete from bonkers_private.profile_images where owner_id=$1 and id<>$2", [ownerId,id]);
+      });
       await client.query(
         "update bonkers_private.demo_state set state=$1,updated_at=now() where id=1",
         [JSON.stringify(data)],
@@ -73,11 +77,30 @@ export async function transaction<T>(
     const data: Store = existsSync(path)
       ? JSON.parse(readFileSync(path, "utf8"))
       : emptyStore();
-    const value = await fn(data);
+    const value = await fn(data, async (_ownerId, id, bytes) => {
+      if (!validAvatarId(id)) throw Error("Invalid image ID");
+      const images = resolve(dir, "avatars");
+      mkdirSync(images, {recursive:true});
+      writeFileSync(resolve(images, id + ".webp"), bytes, {mode:0o600});
+    });
     writeFileSync(path + ".tmp", JSON.stringify(data), { mode: 0o600 });
     renameSync(path + ".tmp", path);
     return value;
   });
   globals.bonkersQueue = task.catch(() => {});
   return task;
+}
+
+
+export async function readAvatar(id: string): Promise<Buffer | null> {
+  if (!validAvatarId(id)) return null;
+  const connectionString = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+  if (connectionString) {
+    globals.bonkersPool ??= new Pool({...postgresConfig(connectionString), max:1, connectionTimeoutMillis:10000, idleTimeoutMillis:10000});
+    const result = await globals.bonkersPool.query("select image from bonkers_private.profile_images where id=$1", [id]);
+    return result.rows[0]?.image ?? null;
+  }
+  if (process.env.VERCEL) throw Error("Database unavailable");
+  const path = resolve(/* turbopackIgnore: true */ process.env.DATA_DIR ?? ".data", "avatars", id + ".webp");
+  return existsSync(path) ? readFileSync(path) : null;
 }
