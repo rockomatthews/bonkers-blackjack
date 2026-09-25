@@ -201,6 +201,23 @@ test("a visitor can join directly from an empty orbital seat", async ({ page }) 
   await seat.click();
   await expect(page.locator(".seat.mine strong")).toContainText("(you)");
   await expect(page.locator(".fee-disclosure")).toContainText("$25.06 total");
+  await page.getByRole("button",{name:"Dismiss notification"}).click();
+  for (const size of [{width:1440,height:900},{width:1280,height:650},{width:390,height:844},{width:844,height:390}]) {
+    await page.setViewportSize(size);
+    await expect(page.locator(".header")).toBeHidden();
+    await expect(page.locator("footer")).toBeHidden();
+    expect(await page.evaluate(()=>document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const locator of [page.getByRole("button",{name:"Leave room",exact:true}),page.getByRole("button",{name:"Place bet",exact:true}),page.getByLabel("Bet in dollars")]) {
+      const box=await locator.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.x+box!.width).toBeLessThanOrEqual(size.width);expect(box!.y+box!.height).toBeLessThanOrEqual(size.height);
+    }
+    await page.screenshot({path:`docs/screenshots/room-${size.width}x${size.height}.png`});
+  }
+  await page.getByRole("button",{name:"Leave room",exact:true}).click();
+  await expect(page).toHaveURL(/#lobby/);
+  await expect(page.locator(".header")).toBeVisible();
 });
 
 

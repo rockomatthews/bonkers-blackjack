@@ -2987,3 +2987,102 @@ footer > small {
   .avatar-preview { flex-wrap: wrap; }
   .account-profile-link strong { overflow-wrap: anywhere; }
 }
+
+/* Rooms occupy the viewport; all play controls live over the scenery. */
+html:has(.room-mode), body:has(.room-mode) { height: 100%; overflow: hidden; overscroll-behavior: none; }
+.room-mode > .header, .room-mode > .preview-bar, .room-mode > footer { display: none; }
+.room-mode .table-page { position: fixed; inset: 0; height: 100dvh; max-width: none; margin: 0; padding: 0; overflow: hidden; background: #080c18; }
+.room-mode .room-viewport { position: absolute; inset: 0; margin: 0; border-radius: 0; overflow: hidden; background: url('/pokerRoom.png') center / cover; }
+.room-mode .game-surface { width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; aspect-ratio: auto; border-radius: 0; }
+.room-mode .room-backdrop { object-fit: fill; }
+.room-mode .table-top { position: absolute; inset: 16px 20px auto; z-index: 4; margin: 0; pointer-events: none; }
+.room-mode .table-top > * { pointer-events: auto; }
+.room-mode .table-title { padding: 8px 16px; background: #080e20b8; border-radius: 12px; }
+.room-mode .table-title h2 { font-size: 20px; }
+.room-mode .table-tools, .room-exit { background: #080e20df; border: 1px solid #bda06b80; border-radius: 12px; padding: 6px; }
+.room-exit { display: flex; gap: 8px; align-items: center; padding: 12px 16px; color: #fff1ce; font-weight: 700; }
+.room-mode .room-dock { position: absolute; z-index: 3; bottom: max(10px, env(safe-area-inset-bottom)); left: 2%; right: 2%; display: flex; flex-direction: column; gap: 5px; padding: 10px 16px; border: 1px solid #c5a46b70; border-radius: 18px; background: linear-gradient(120deg,#0b1023ed,#20142be8); box-shadow: 0 8px 40px #0009; backdrop-filter: blur(12px); }
+.room-mode .table-controls { order: 1; margin: 0; min-height: 0; padding: 0; background: none; border: 0; gap: 12px; }
+.room-mode .fee-disclosure { order: 2; padding: 0; font-size: 10px; flex-direction: row; justify-content: center; gap: 4px 15px; line-height: 1.4; }
+.room-mode .fee-disclosure > span:nth-child(2) { display: none; }
+.room-mode .table-bottom { order: 3; margin: 0; padding: 0; font-size: 9px; }
+.room-mode .control-balance strong { margin: 2px 0; font-size: 19px; }
+.room-mode .your-hands { order: 0; display: none; }
+.room-mode .verification { position: absolute; z-index: 5; top: 80px; left: 15%; right: 15%; background: #091627f5; }
+.room-mode > .error-banner { position: fixed; z-index: 50; top: 75px; left: 10%; right: 10%; }
+.room-mode .loading-state { height: 100%; }
+@media (max-width: 1000px) {
+ .room-mode .table-controls { display: flex; flex-wrap: wrap; justify-content: center; }
+ .room-mode .control-options { display: none; }
+ .room-mode .play-actions { flex: 1; gap: 6px; }
+ .room-mode .play-actions .button { padding: 10px 12px; font-size: 12px; min-height: 40px; }
+ .room-mode .chip { width: 34px; height: 34px; font-size: 11px; }
+ .room-mode .table-title { display: none; }
+ .room-mode .table-top { inset: 10px 12px auto; }
+ .room-mode .table-bottom > span:first-child { display: none; }
+ .room-mode .orbital-room .seat > strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+ .room-mode .game-surface { position: absolute; top: 12%; height: 56%; background: transparent; overflow: visible; }
+ .room-mode .room-backdrop { object-fit: cover; opacity: .5; }
+ .room-mode .orbital-room .seat { width: 23%; }
+ .room-mode .orbital-room .seat-0 { left: 13%; top: 46%; }
+ .room-mode .orbital-room .seat-1 { left: 37%; top: 58%; }
+ .room-mode .orbital-room .seat-2 { left: 63%; top: 58%; }
+ .room-mode .orbital-room .seat-3 { left: 87%; top: 46%; }
+ .room-mode .orbital-room .seat-4 { left: 20%; top: 87%; }
+ .room-mode .orbital-room .seat-5 { left: 50%; top: 90%; }
+ .room-mode .orbital-room .seat-6 { left: 80%; top: 87%; }
+ .room-mode .orbital-room .dealer-zone { top: 9%; }
+ .room-mode .orbital-room .dealer-cards { top: 23%; }
+ .room-mode .orbital-room .table-status { top: -5%; }
+ .room-mode .orbital-room .empty-seat { padding: 4px 8px; min-height: 44px; font-size: 10px; }
+ .room-mode .orbital-room .seat-hands { display: none; }
+ .room-mode .room-dock { padding: 8px; left: 8px; right: 8px; gap: 4px; }
+ .room-mode .control-balance { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: space-between; }
+ .room-mode .control-balance small { font-size: 7px; }
+ .room-mode .control-balance strong { font-size: 16px; }
+ .room-mode .table-controls { gap: 6px; }
+ .room-mode .bet-input { width: 100px; height: 36px; }
+ .room-mode .bet-input input { width: 35px; }
+ .room-mode .chip-options { gap: 4px; }
+ .room-mode .chip { width: 28px; height: 28px; border-width: 3px; }
+ .room-mode .play-actions .button { padding: 8px; font-size: 11px; }
+ .room-mode .play-actions .button svg { display: none; }
+ .room-mode .your-hands { display: flex; background: transparent; padding: 0; margin: 0; border: 0; gap: 3px; flex-wrap: nowrap; }
+ .room-mode .your-hands > .eyebrow { display: none; }
+ .room-mode .your-hand { padding: 2px; gap: 2px; min-width: 0; }
+ .room-mode .your-hand .card { width: 27px; height: 36px; font-size: 9px; }
+ .room-mode .your-hand .card b { font-size: 13px; }
+ .room-mode .your-hand .card:not(:first-child) { margin-left: -17px; }
+ .room-mode .your-hand strong { font-size: 10px; }
+ .room-mode .your-hand small { display: none; }
+ .room-mode .fee-disclosure { font-size: 8px; }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+ .room-mode .table-top { top: 6px; }
+ .room-mode .table-title { display: none; }
+ .room-mode .room-dock { padding: 5px 10px; bottom: 4px; }
+ .room-mode .table-bottom { display: none; }
+ .room-mode .control-balance small, .room-mode .control-balance .text-link { display: none; }
+ .room-mode .orbital-room .seat > small { display: none; }
+ .room-mode .orbital-room .dealer-zone { display: none; }
+ .room-mode .orbital-room .dealer-cards { top: 25%; }
+ .room-mode .orbital-room .seat { margin-top: -15px; }
+}
+.room-mode .table-title { display: none; }
+.room-mode > .toast { top: 72px; bottom: auto; right: 12px; left: auto; max-width: min(420px, calc(100vw - 24px)); }
+.room-mode .your-hands .card { animation: none; }
+.room-mode .orbital-room .dealer-cards { width: max-content; max-width: 90%; flex-wrap: nowrap; }
+.room-mode .orbital-room .dealer-cards .card:not(:first-child) { margin-left: -10px; }
+@media (max-width: 600px) and (orientation: portrait) {
+ .room-mode .room-backdrop { display: none; }
+ .room-mode .chip-options { display: flex; }
+ .room-mode .control-balance { flex-wrap: nowrap; }
+ .room-mode .control-balance small { width: auto; max-width: 65px; }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+ .room-mode .control-balance { flex-basis: auto; width: auto; }
+ .room-mode .play-actions { flex-basis: auto; }
+ .room-mode .table-controls { flex-wrap: nowrap; }
+}

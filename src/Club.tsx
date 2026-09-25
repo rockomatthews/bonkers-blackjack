@@ -33,6 +33,7 @@ import {
   Eye,
   CircleHelp,
   LogOut,
+  DoorOpen,
   UserRound,
   ChevronRight,
 } from "lucide-react";
@@ -163,7 +164,6 @@ function Dialog({
   );
 }
 export default function Club() {
-  const roomViewport = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState("home"),
     [tableId, setTableId] = useState("bonkers-room");
   const [profileId, setProfileId] = useState("");
@@ -443,19 +443,6 @@ export default function Club() {
     if (table) setBet((b) => Math.max(table.min, Math.min(table.max, b)));
   }, [table?.id, table?.min, table?.max]);
   const me = account ? (table?.seats.findIndex((s) => s?.id === account.id) ?? -1) : -1;
-  useEffect(() => {
-    const viewport = roomViewport.current;
-    if (!viewport) return;
-    const centerSeat = () => {
-      if (viewport.scrollWidth <= viewport.clientWidth) return;
-      const position = me >= 0 ? [0.2, 0.28, 0.39, 0.5, 0.61, 0.72, 0.8][me] : 0.5;
-      viewport.scrollLeft = viewport.scrollWidth * position - viewport.clientWidth / 2;
-    };
-    const observer = new ResizeObserver(centerSeat);
-    observer.observe(viewport);
-    centerSeat();
-    return () => observer.disconnect();
-  }, [table?.id, me]);
   const ownRound = table?.round?.players.find((p) => p.id === account?.id);
   const myTurn =
     !!table?.round?.current &&
@@ -496,7 +483,7 @@ export default function Club() {
     account.session.expiresAt > now &&
     account.session.limit > account.session.spent;
   return (
-    <>
+    <div className={page === "table" ? "club room-mode" : "club"}>
       <div className="preview-bar">
         <span>
           <span className="status-dot" /> PLAY-MONEY PREVIEW
@@ -794,8 +781,15 @@ export default function Club() {
         {page === "table" && (
           <section className="table-page">
             <div className="table-top">
-              <button className="text-link" onClick={() => go("lobby")}>
-                <ArrowLeft size={16} /> All tables
+              <button className="room-exit" disabled={busy} onClick={async () => {
+                if (me >= 0 && table) {
+                  if (table.seats[me]?.bet && table.round?.phase !== "settled") {
+                    setNotice("You left the room. Your locked hand will automatically stand when its timer expires.");
+                  } else if (!await command("leave")) return;
+                }
+                go("lobby");
+              }}>
+                <DoorOpen size={22} /> Leave room
               </button>
               <div className="table-title">
                 <h2>{table?.name ?? "Taking you to the table…"}</h2>
@@ -829,8 +823,7 @@ export default function Club() {
             </div>
             {table ? (
               <>
-                <p className="room-pan-hint">Swipe across the room to find your seat. Your controls stay below.</p>
-                <div className="room-viewport" ref={roomViewport} tabIndex={0} aria-label="Blackjack room. Scroll horizontally on smaller screens.">
+                <div className="room-viewport" aria-label="Blackjack room">
                 <div className={"game-surface " + table.theme + ((table.id === "bonkers-room" || table.private) ? " orbital-room" : "")}>
                   {(table.id === "bonkers-room" || table.private) && <Image src="/pokerRoom.png" alt="Bonkers Blackjack orbital lounge above Earth, with seven seats around the table" fill sizes="(max-width: 1000px) 1000px, 1440px" loading="eager" className="room-backdrop" />}
                   <div className="felt-lines" />
@@ -1003,6 +996,7 @@ export default function Club() {
                   )}
                 </div>
                 </div>
+                <div className="room-dock">
                 {ownRound && <div className="your-hands" aria-label="Your hands">
                   <span className="eyebrow" aria-live="polite">{myTurn ? `YOUR TURN · ${remaining}s` : table.round?.phase === "settled" ? "ROUND COMPLETE" : "YOUR HANDS · WAITING FOR YOUR TURN"}</span>
                   {ownRound.hands.map((hand, index) => <div className={"your-hand " + (myTurn && table.round?.current?.[1] === index ? "current-hand" : "")} key={index}>
@@ -1223,6 +1217,7 @@ export default function Club() {
                   <a href="#how-to-play">
                     Table rules <CircleHelp size={14} />
                   </a>
+                </div>
                 </div>
                 {verification && (
                   <div
@@ -2048,6 +2043,6 @@ export default function Club() {
           )}
         </Dialog>
       )}
-    </>
+    </div>
   );
 }

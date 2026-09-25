@@ -71,7 +71,7 @@ The single locked JSONB record deliberately serializes a small demo. It is **not
 
 ## Orbital room and table fee
 
-The owner's `pokerRoom.png` is preserved byte-for-byte in `public/` and used as the backdrop for the first public table and private rooms. Cards, seats, statuses, and controls are live UI overlays. Smaller screens can pan across the room; a separate hand panel keeps every personal hand readable.
+The owner's `pokerRoom.png` is preserved byte-for-byte in `public/` and used as the backdrop for the first public table and private rooms. Cards, seats, statuses, and controls are live UI overlays. Rooms fill the browser viewport without a site header, footer, or scrolling. Betting and gameplay controls overlay the bottom of the artwork; a door button returns to the lobby. Portrait phones use compact seat positions and a personal-hand panel. Leaving an idle seat releases it; a locked wager remains active and follows the published automatic-stand deadline.
 
 New signed wagers acknowledge `initial-wager-25bps-floor-cent-v1`: 0.25% of the initial wager, rounded down to a cent, charged once at wager lock. A $5 wager costs $5.01, $25 costs $25.06, and $100 costs $100.25. Splits and doubles add only their extra stake. The fee applies to wins, losses, naturals, and pushes, counts against the authorized session budget, and is included in the displayed net result. It is additional to the ordinary blackjack house edge, and is revenue rather than guaranteed per-round profit. All amounts remain play money.
 
