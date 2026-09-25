@@ -108,9 +108,18 @@ test("seven browser identities share a private round, reconnect, and verify iden
         break;
       let acted = false;
       for (const p of pages) {
-        const stand = p.getByRole("button", { name: "Stand", exact: true });
-        if ((await stand.isVisible()) && (await stand.isEnabled())) {
-          await stand.click();
+        // One snapshot avoids waiting for a button removed by a settlement poll
+        // between separate isVisible/isEnabled calls (notably on slower CI).
+        const stand = p.getByRole("button", { name: "Stand", exact: true })
+          .and(p.locator("button:enabled"));
+        if (await stand.count()) {
+          try {
+            await stand.click();
+          } catch (error) {
+            // A timeout may settle the final hand while Playwright scrolls.
+            // Other interaction failures must still fail the test.
+            if (!(await p.getByRole("button", {name:"Next round",exact:true}).isVisible())) throw error;
+          }
           acted = true;
           break;
         }
