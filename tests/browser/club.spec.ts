@@ -58,8 +58,13 @@ test("seven browser identities share a private round, reconnect, and verify iden
     Array.from({ length: 7 }, () => browser.newContext()),
   );
   const pages = await Promise.all(contexts.map((c) => c.newPage()));
+  for (const page of pages) {
+    page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(30000);
+  }
   try {
-    await Promise.all(pages.map((p, i) => join(p, "Player " + (i + 1))));
+    await test.step("Register seven browser identities", () =>
+      Promise.all(pages.map((p, i) => join(p, "Player " + (i + 1)))));
     await pages[0]
       .getByRole("button", { name: "Create a private table" })
       .click();
@@ -91,7 +96,7 @@ test("seven browser identities share a private round, reconnect, and verify iden
     await pages[0]
       .getByRole("button", { name: "Deal table", exact: true })
       .click();
-    await pages[3].reload();
+    await test.step("Reconnect fourth browser", () => pages[3].reload());
     for (let guard = 0; guard < 40; guard++) {
       if (
         await pages[0]
@@ -150,7 +155,7 @@ test("seven browser identities share a private round, reconnect, and verify iden
       pages[0].getByText("Round verified", { exact: true }),
     ).toBeVisible();
   } finally {
-    await Promise.all(contexts.map((c) => c.close()));
+    await Promise.allSettled(contexts.map((c) => c.close()));
   }
 });
 
