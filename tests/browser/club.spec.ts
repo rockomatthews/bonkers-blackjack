@@ -83,21 +83,17 @@ test("seven browser identities share a private round, reconnect, and verify iden
         .click();
     await expect(pages[0].locator(".seat strong")).toHaveCount(7);
     await expect(pages[0].locator(".room-backdrop")).toBeVisible();
+    await Promise.all(pages.map(p => p.getByRole("button", {name:"Add $25 chip",exact:true}).click()));
+    await Promise.all(pages.map(p => expect(p.getByRole("button",{name:"Deal",exact:true})).toBeEnabled()));
     await expect(pages[0].locator(".fee-disclosure")).toContainText("$25.00 wager + $0.06 fee = $25.06 total");
     await Promise.all(
       pages.map((p) =>
-        p.getByRole("button", { name: "Place bet", exact: true }).click(),
+        p.getByRole("button", { name: "Deal", exact: true }).click(),
       ),
     );
     await expect(
-      pages[0].getByRole("button", { name: "Deal table", exact: true }),
-    ).toBeVisible();
-    await expect(
       pages[0].locator(".seat>small").filter({ hasText: "$25.00" }),
     ).toHaveCount(7);
-    await pages[0]
-      .getByRole("button", { name: "Deal table", exact: true })
-      .click();
     await test.step("Reconnect fourth browser", () => pages[3].reload());
     for (let guard = 0; guard < 40; guard++) {
       if (
@@ -200,6 +196,8 @@ test("a visitor can join directly from an empty orbital seat", async ({ page }) 
   await expect(page).toHaveURL(/#table\/bonkers-room/);
   await seat.click();
   await expect(page.locator(".seat.mine strong")).toContainText("(you)");
+  await page.getByRole("button",{name:"Add $25 chip",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Deal",exact:true})).toBeEnabled();
   await expect(page.locator(".fee-disclosure")).toContainText("$25.06 total");
   await page.getByRole("button",{name:"Dismiss notification"}).click();
   for (const size of [{width:1440,height:900},{width:1280,height:650},{width:390,height:844},{width:844,height:390}]) {
@@ -207,7 +205,7 @@ test("a visitor can join directly from an empty orbital seat", async ({ page }) 
     await expect(page.locator(".header")).toBeHidden();
     await expect(page.locator("footer")).toBeHidden();
     expect(await page.evaluate(()=>document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    for (const locator of [page.getByRole("button",{name:"Leave room",exact:true}),page.getByRole("button",{name:"Place bet",exact:true}),page.getByLabel("Bet in dollars")]) {
+    for (const locator of [page.getByRole("button",{name:"Leave room",exact:true}),page.getByRole("button",{name:"Deal",exact:true}),page.getByLabel("Bet in dollars")]) {
       const box=await locator.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.y).toBeGreaterThanOrEqual(0);
@@ -263,4 +261,33 @@ test("profiles enforce a single unique name and support public avatars and uploa
     await expect(other.getByText("That name is already taken.",{exact:true})).toBeVisible();
     await expect(other.getByRole("button",{name:"Claim username permanently"})).toBeDisabled();
   } finally {await context.close();}
+});
+
+
+test("chip clicks accumulate on the felt, survive reload, and stay editable until Deal",async({page})=>{
+  await join(page,"Chip Tester");
+  await page.getByRole("button",{name:"Create a private table"}).click();
+  await page.getByLabel("Table name",{exact:true}).fill("Stack test");
+  await page.getByRole("button",{name:"Create private table",exact:true}).click();
+  await page.getByRole("button",{name:"Take seat 4",exact:true}).click();
+  const chip=page.getByRole("button",{name:"Add $5 chip",exact:true});
+  await chip.click();await chip.click();
+  await expect(page.getByRole("button",{name:"Deal",exact:true})).toBeEnabled();
+  await expect(page.locator(".my-bet .wager-chip")).toHaveCount(2);
+  await expect(page.locator(".my-bet")).toContainText("$10.00");
+  await expect(page.locator(".control-balance strong")).toContainText("$1,000.00");
+  await page.reload();
+  await expect(page.locator(".my-bet .wager-chip")).toHaveCount(2);
+  await page.getByRole("button",{name:"Undo last chip"}).click();
+  await expect(page.getByRole("button",{name:"Clear staged chips"})).toBeEnabled();
+  await expect(page.locator(".my-bet .wager-chip")).toHaveCount(1);
+  await page.getByRole("button",{name:"Clear staged chips"}).click();
+  await expect(page.locator(".my-bet")).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Deal",exact:true})).toBeDisabled();
+  await chip.click();await chip.click();
+  await expect(page.getByRole("button",{name:"Deal",exact:true})).toBeEnabled();
+  await page.screenshot({path:"docs/screenshots/staged-chip-stack.png"});
+  await page.getByRole("button",{name:"Deal",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Deal",exact:true})).toHaveCount(0);
+  await expect(page.locator(".seat.mine .hand-total")).not.toHaveCount(0);
 });

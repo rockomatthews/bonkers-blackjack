@@ -34,11 +34,14 @@ import {
   CircleHelp,
   LogOut,
   DoorOpen,
+  Undo2,
+  Trash2,
   UserRound,
   ChevronRight,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { Avatar, ProfilePage } from "./Profile";
+import { CHIP_VALUES, chipTotal, chipsForAmount } from "../shared/chips";
 import { FEE_POLICY, roundFee } from "../shared/fees";
 import { money, cardLabel, suit, total, hash } from "../shared/game";
 import {
@@ -183,8 +186,14 @@ export default function Club() {
     [now, setNow] = useState(0),
     [sound, setSound] = useState(false),
     [menu, setMenu] = useState(false);
-  const [bet, setBet] = useState(2500),
-    [receipts, setReceipts] = useState<Receipt[]>([]),
+  const [chipDraft, setChipDraft] = useState<number[] | null>(null);
+  const chipDraftRef = useRef<number[] | null>(null);
+  const chipQueue = useRef<Promise<void>>(Promise.resolve());
+  const [pendingChips, setPendingChips] = useState(0);
+  const pendingChipsRef = useRef(0);
+  const tableRef = useRef(table);
+  tableRef.current = table;
+  const [receipts, setReceipts] = useState<Receipt[]>([]),
     [verification, setVerification] = useState<{
       valid: boolean;
       detail: string;
@@ -439,10 +448,43 @@ export default function Club() {
     setTable(null);
     go("table/" + id);
   };
-  useEffect(() => {
-    if (table) setBet((b) => Math.max(table.min, Math.min(table.max, b)));
-  }, [table?.id, table?.min, table?.max]);
+
   const me = account ? (table?.seats.findIndex((s) => s?.id === account.id) ?? -1) : -1;
+  const stagedChips = chipDraft ?? (me >= 0 ? table?.seats[me]?.chips ?? [] : []);
+  const bet = chipTotal(stagedChips);
+  useEffect(() => {
+    chipDraftRef.current = null;
+    setChipDraft(null);
+  }, [table?.id, table?.commitment, table?.round?.id]);
+  function stageChips(chips: number[]) {
+    const current = tableRef.current;
+    if (!current || me < 0 || current.round || current.seats[me]?.bet) return;
+    const amount = chipTotal(chips);
+    if (!Number.isSafeInteger(amount) || amount > current.max || chips.length > 200) {
+      setError(`Maximum wager is ${money(current.max)}.`); return;
+    }
+    if (amount && (!account || account.session.expiresAt <= now || account.session.spent + amount + roundFee(amount) > account.session.limit)) {
+      setModal("session"); return;
+    }
+    if (amount + roundFee(amount) > (account?.balance ?? 0)) { setError("Not enough play money for these chips and the table fee."); return; }
+    chipDraftRef.current = chips;
+    setChipDraft(chips);
+    setPendingChips(++pendingChipsRef.current);
+    const payload = {bet:amount, chips, entropy:random(), commitment:current.commitment, feePolicy:FEE_POLICY, lockOnDeadline:true};
+    chipQueue.current = chipQueue.current.then(async () => {
+      while (busyRef.current) await new Promise(resolve => setTimeout(resolve, 25));
+      const latest = tableRef.current;
+      if (latest?.id === current.id && latest.commitment === current.commitment && !latest.round)
+        await command("stage-bet", payload, current.id);
+    }).finally(() => {
+      setPendingChips(--pendingChipsRef.current);
+      if (!pendingChipsRef.current) { chipDraftRef.current = null; setChipDraft(null); }
+    });
+  }
+  function addChip(value: number) {
+    const saved = tableRef.current?.seats.find(s => s?.id === account?.id)?.chips ?? [];
+    stageChips([...(chipDraftRef.current ?? saved), value]);
+  }
   const ownRound = table?.round?.players.find((p) => p.id === account?.id);
   const myTurn =
     !!table?.round?.current &&
@@ -899,6 +941,17 @@ export default function Club() {
                       <span>Take a seat. The next hand is yours.</span>
                     )}
                   </div>
+                  {!table.round && <div className="betting-spots" aria-label="Table betting areas">
+                    {table.seats.map((seat, index) => {
+                      const chips = seat?.id === account?.id ? stagedChips : seat?.chips ?? [];
+                      if (!chips.length) return null;
+                      return <div className={`betting-spot betting-spot-${index} ${seat?.id === account?.id ? "my-bet" : ""} ${seat?.bet ? "locked" : "staged"}`} key={index}
+                        aria-label={`${seat?.name}: ${chips.length} chips, ${money(chipTotal(chips))}, ${seat?.bet ? "locked" : "staged"}`}>
+                        <div className="chip-stack">{chips.slice(-8).map((chip, layer) => <span key={`${layer}-${chip}`} className={`wager-chip denomination-${chip}`} style={{bottom:layer*4}}>{chip/100}</span>)}</div>
+                        <strong>{money(chipTotal(chips))}</strong><small>{chips.length} {chips.length === 1 ? "chip" : "chips"} · {seat?.bet ? "Ready" : "Staged"}</small>
+                      </div>;
+                    })}
+                  </div>}
                   <div className="seats">
                     {table.seats.map((s, i) => {
                       const pr = table.round?.players.find(
@@ -967,7 +1020,7 @@ export default function Club() {
                                   ? money(pr.committed)
                                   : s.bet
                                     ? money(s.bet)
-                                    : "Ready when you are"}
+                                    : s.stagedBet ? money(s.stagedBet) + " staged" : "Add chips to play"}
                               </small>
                             </>
                           ) : (
@@ -1005,6 +1058,7 @@ export default function Club() {
                     <small>{money(hand.bet)} wager</small>
                   </div>)}
                 </div>}
+                {table.betNotice && <div className="bet-notice" role="status">{table.betNotice}</div>}
                 <div className="fee-disclosure">
                   <span>0.25% table fee · initial wager only · rounded down to the cent.</span>
                   <span>No extra fee for splits or doubles. Applies to wins, losses, and ties.</span>
@@ -1094,13 +1148,7 @@ export default function Club() {
                           <LockKeyhole size={16} />{" "}
                           {money(table.seats[me]!.bet)} wager locked · {money(table.seats[me]!.fee)} fee
                         </span>
-                        <button
-                          className="button primary"
-                          disabled={busy}
-                          onClick={() => void command("deal")}
-                        >
-                          Deal table <ArrowRight size={16} />
-                        </button>
+                        <span className="ready-label">Ready · waiting for the table</span>
                       </>
                     ) : (
                       <>
@@ -1109,7 +1157,7 @@ export default function Club() {
                             aria-label="Decrease bet"
                             disabled={busy}
                             onClick={() =>
-                              setBet(Math.max(table.min, bet - 500))
+                              stageChips(chipsForAmount(Math.max(0, bet - 500)))
                             }
                           >
                             <Minus size={15} />
@@ -1119,11 +1167,11 @@ export default function Club() {
                             <input
                               aria-label="Bet in dollars"
                               type="number"
-                              min={table.min / 100}
+                              min={0}
                               max={table.max / 100}
                               value={bet / 100}
                               onChange={(e) =>
-                                setBet(Math.round(Number(e.target.value) * 100))
+                                stageChips(chipsForAmount(Math.min(table.max, Math.max(0, Math.floor(Number(e.target.value)) * 100))))
                               }
                             />
                           </label>
@@ -1131,46 +1179,39 @@ export default function Club() {
                             aria-label="Increase bet"
                             disabled={busy}
                             onClick={() =>
-                              setBet(Math.min(table.max, bet + 500))
+                              addChip(500)
                             }
                           >
                             <Plus size={15} />
                           </button>
                         </div>
                         <div className="chip-options">
-                          {[500, 2500, 5000, 10000]
-                            .filter((n) => n >= table.min && n <= table.max)
+                          {CHIP_VALUES
+                            .filter((n) => n <= table.max)
                             .map((n) => (
                               <button
                                 className={
-                                  "chip " + (bet === n ? "selected" : "")
+                                  "chip denomination-" + n
                                 }
                                 key={n}
-                                onClick={() => setBet(n)}
+                                aria-label={`Add $${n / 100} chip`}
+                                onClick={() => addChip(n)}
                               >
                                 {n / 100}
                               </button>
                             ))}
                         </div>
-                        <button
-                          className="button primary"
-                          disabled={busy}
-                          onClick={() =>
-                            sessionActive
-                              ? void command("bet", {
-                                  bet,
-                                  entropy: random(),
-                                  commitment: table.commitment,
-                                  feePolicy: FEE_POLICY,
-                                })
-                              : setModal("session")
-                          }
-                        >
-                          {sessionActive ? "Place bet" : "Authorize play"}{" "}
-                          <ArrowRight size={16} />
+                        <button className="button primary" disabled={busy || pendingChips > 0 || bet < table.min || bet > table.max}
+                          onClick={() => void command("deal")}>
+                          Deal <ArrowRight size={16} />
                         </button>
+                        <div className="chip-edit-actions">
+                          <button className="text-link" aria-label="Undo last chip" disabled={busy || pendingChips > 0 || !stagedChips.length} onClick={() => stageChips(stagedChips.slice(0,-1))}><Undo2 size={14} /> Undo</button>
+                          <button className="text-link" aria-label="Clear staged chips" disabled={busy || pendingChips > 0 || !stagedChips.length} onClick={() => stageChips([])}><Trash2 size={14} /> Clear</button>
+                        </div>
                       </>
                     )}
+                    {me >= 0 && !table.round && !table.seats[me]?.bet && <small className="chip-help">{pendingChips ? "Saving chips…" : `Chips stay editable until Deal or the timer ends. Min ${money(table.min)}.`}</small>}
                   </div>
                   <div className="control-options">
                     <select
@@ -1270,7 +1311,7 @@ export default function Club() {
                 [
                   "01",
                   "Take a seat",
-                  "Choose an open seat, pick a play-money bet, and wait for the round to begin.",
+                  "Choose a seat and click chips to build your wager. Undo or clear before pressing Deal; otherwise your saved stack locks when the betting timer ends.",
                 ],
                 [
                   "02",

@@ -18,6 +18,7 @@ import {
 } from "../shared/protocol";
 import { FEE_POLICY, LEGACY_FEE_POLICY, roundFee } from "../shared/fees";
 import type { Account, Table, Store } from "./store";
+import { chipTotal, validChips } from "../shared/chips";
 import { AVATARS, nameError, nameKey, normalizeName, type PublicProfile } from "../shared/profiles";
 import { normalizeAvatar, type SaveAvatar } from "./avatars";
 export function service(data: Store, saveAvatar?: SaveAvatar) {
@@ -121,6 +122,7 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
       commitment: t.commitment,
       deadline: t.deadline,
       betDeadline: t.betDeadline,
+      betNotice: a ? t.betNotices?.[a.id] ?? null : null,
       seats: t.seats.map((id) =>
         id
           ? {
@@ -131,6 +133,8 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
               connected: Date.now() - (data.presence[id]?.at ?? 0) < 12000,
               bet: t.bets[id]?.bet ?? 0,
               fee: t.bets[id]?.fee ?? 0,
+              chips: (t.bets[id]?.envelope.command.payload.chips ?? t.drafts?.[id]?.envelope.command.payload.chips ?? []) as number[],
+              stagedBet: Number(t.drafts?.[id]?.envelope.command.payload.bet ?? 0),
             }
           : null,
       ),
@@ -181,7 +185,7 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
       data.house -= p.payout;
     }
     const body: Omit<Receipt, "hash"> = {
-      version: 2,
+      version: Object.values(t.bets).some(b => b.envelope.command.kind === "stage-bet") ? 3 : 2,
       roundId: t.round.id,
       tableId: t.id,
       rules: t.round.rules,
@@ -222,6 +226,7 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
         entropy: t.bets[id].entropy,
       }));
     if (!wagers.length) fail("Place a bet first");
+    t.drafts = {};
     t.round = startRound(randomUUID(), wagers, t.seed);
     t.deadline = Date.now() + ACTION_MS;
     t.betDeadline = null;
@@ -233,6 +238,8 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     t.commitment = hash(t.seed);
     t.round = null;
     t.bets = {};
+    t.drafts = {};
+    t.betNotices = {};
     t.actions = [];
     t.deadline = null;
     t.betDeadline = null;
@@ -322,6 +329,37 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     const taken = Object.values(data.accounts).some(a => a.id !== ownerId && nameKey(a.name) === nameKey(name));
     return {available:!taken, reason:taken ? "That name is already taken." : "Available. Yours if you want it.", name};
   }
+  function lockBet(t: Table, a: Account, e: SignedCommand) {
+    const p = e.command.payload;
+    if (!t.seats.includes(a.id)) fail("Take a seat first");
+    if (t.round) fail("Start a new round first");
+    if (t.bets[a.id]) fail("Bet already locked");
+    const bet = int(p.bet, t.min, t.max);
+    if (bet % 100 !== 0) fail("Bet in whole dollars");
+    if (p.commitment !== t.commitment) fail("Shuffle changed; please try again");
+    if (typeof p.entropy !== "string" || !/^[a-f0-9]{64}$/.test(p.entropy)) fail("Invalid player entropy");
+    if (p.feePolicy !== FEE_POLICY) fail("Fee policy changed. Refresh before betting.");
+    const fee = roundFee(bet);
+    authorize(a, bet + fee);
+    if (data.house - reserved() < bet * 16) fail("Table reserves exhausted");
+    t.bets[a.id] = {bet, entropy:p.entropy as string, envelope:e, fee};
+    a.balance -= bet + fee;
+    a.session.spent += bet + fee;
+    data.house += bet + fee;
+    data.feeRevenue = (data.feeRevenue ?? 0) + fee;
+    if (t.drafts) delete t.drafts[a.id];
+    t.betDeadline ??= Date.now() + BET_MS;
+  }
+  function lockDraft(t: Table, a: Account) {
+    const draft = t.drafts?.[a.id];
+    if (!draft) fail("Add chips first");
+    if (draft!.sessionExpiry !== a.session.expiresAt) fail("Your play authorization changed. Add your chips again.");
+    lockBet(t, a, draft!.envelope);
+  }
+  function beginIfReady(t: Table) {
+    const seated = t.seats.filter((id): id is string => !!id);
+    if (!t.round && seated.length && seated.every(id => !!t.bets[id])) begin(t);
+  }
   async function apply(a: Account, e: SignedCommand) {
     const { kind, payload: p, tableId } = e.command,
       t = data.tables[tableId];
@@ -357,6 +395,9 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     }
     if (kind === "revoke") {
       a.session.expiresAt = 0;
+      for (const table of Object.values(data.tables)) {
+        if (table.drafts?.[a.id]) { delete table.drafts[a.id]; (table.betNotices ??= {})[a.id] = "Staged chips cleared: play authorization revoked."; }
+      }
       return;
     }
     if (kind === "deposit" || kind === "withdrawal")
@@ -412,29 +453,32 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
       if (t.bets[a.id] && !t.settled)
         fail("Your seat is locked until the round settles");
       t.seats = t.seats.map((id) => (id === a.id ? null : id));
-    } else if (kind === "bet") {
+      if (t.drafts) delete t.drafts[a.id];
+      beginIfReady(t);
+    } else if (kind === "stage-bet") {
       if (!t.seats.includes(a.id)) fail("Take a seat first");
-      if (t.round) fail("Start a new round first");
-      if (t.bets[a.id]) fail("Bet already locked");
-      const bet = int(p.bet, t.min, t.max);
-      if (bet % 100 !== 0) fail("Bet in whole dollars");
-      if (p.commitment !== t.commitment)
-        fail("Shuffle changed; please try again");
-      if (typeof p.entropy !== "string" || !/^[a-f0-9]{64}$/.test(p.entropy))
-        fail("Invalid player entropy");
-      if (p.feePolicy !== FEE_POLICY) fail("Fee policy changed. Refresh before betting.");
-      const fee = roundFee(bet);
-      authorize(a, bet + fee);
-      if (data.house - reserved() < bet * 16) fail("Table reserves exhausted");
-      t.bets[a.id] = { bet, entropy: p.entropy as string, envelope: e, fee };
-      a.balance -= bet + fee;
-      a.session.spent += bet + fee;
-      data.house += bet + fee;
-      data.feeRevenue = (data.feeRevenue ?? 0) + fee;
-      t.betDeadline ??= Date.now() + BET_MS;
+      if (t.round || t.bets[a.id]) fail("Betting is closed for your seat");
+      if (!validChips(p.chips)) fail("Invalid chip stack");
+      const bet = int(p.bet, 0, t.max);
+      if (chipTotal(p.chips as number[]) !== bet) fail("Chip total does not match wager");
+      if (p.commitment !== t.commitment) fail("Shuffle changed; please try again");
+      if (p.feePolicy !== FEE_POLICY || p.lockOnDeadline !== true) fail("Authorize the fee and automatic lock at the deadline");
+      if (typeof p.entropy !== "string" || !/^[a-f0-9]{64}$/.test(p.entropy)) fail("Invalid player entropy");
+      if (bet) authorize(a, bet + roundFee(bet));
+      t.drafts ??= {};
+      t.betNotices ??= {};
+      delete t.betNotices[a.id];
+      if (bet) {
+        t.drafts[a.id] = {envelope:e, sessionExpiry:a.session.expiresAt};
+        t.betDeadline ??= Date.now() + BET_MS;
+      } else delete t.drafts[a.id];
+      if (!Object.keys(t.drafts).length && !Object.keys(t.bets).length) t.betDeadline = null;
+    } else if (kind === "bet") {
+      // Legacy signed clients may still lock a wager directly.
+      lockBet(t, a, e);
     } else if (kind === "deal") {
-      if (!t.bets[a.id]) fail("Only a betting player can deal");
-      begin(t);
+      if (!t.bets[a.id]) lockDraft(t, a);
+      beginIfReady(t);
     } else if (kind === "next") {
       if (!t.seats.includes(a.id)) fail("Take a seat first");
       reset(t);
@@ -463,7 +507,16 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     const now = Date.now();
     for (const t of Object.values(data.tables)) {
       if (!t.round && t.betDeadline && now >= t.betDeadline) {
-        begin(t);
+        for (const id of t.seats) {
+          if (!id || !t.drafts?.[id] || t.bets[id]) continue;
+          try { lockDraft(t, data.accounts[id]); }
+          catch (error) {
+            (t.betNotices ??= {})[id] = "Wager not placed: " + (error instanceof Error ? error.message : "Please add chips again.");
+            delete t.drafts[id];
+          }
+        }
+        t.betDeadline = null;
+        if (Object.keys(t.bets).length) begin(t);
         t.sequence++;
       }
       if (t.round?.phase === "playing" && t.deadline && now >= t.deadline) {

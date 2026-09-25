@@ -3086,3 +3086,50 @@ html:has(.room-mode), body:has(.room-mode) { height: 100%; overflow: hidden; ove
  .room-mode .play-actions { flex-basis: auto; }
  .room-mode .table-controls { flex-wrap: nowrap; }
 }
+
+/* Signed, editable chip stacks on the felt. */
+.betting-spots { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.betting-spot { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; color: #fff1d2; }
+.betting-spot-0 { left: 21%; top: 44%; }
+.betting-spot-1 { left: 28%; top: 50%; }
+.betting-spot-2 { left: 39%; top: 55%; }
+.betting-spot-3 { left: 50%; top: 58%; }
+.betting-spot-4 { left: 61%; top: 55%; }
+.betting-spot-5 { left: 72%; top: 50%; }
+.betting-spot-6 { left: 79%; top: 44%; }
+.chip-stack { position: relative; width: 42px; height: 47px; filter: drop-shadow(0 6px 4px #000a); }
+.wager-chip { position: absolute; left: 0; width: 42px; height: 25px; display: grid; place-items: center; border-radius: 50%; border: 4px dashed #efe2c0; outline: 1px solid #252936; box-shadow: 0 3px 0 #111a, inset 0 0 0 1px #ffffff70; font-size: 11px; font-weight: 900; background: #29574d; animation: chip-land .2s ease-out; }
+.denomination-100 { background-color: #706785; }
+.denomination-500 { background-color: #29574d; }
+.denomination-2500 { background-color: #a83a35; }
+.denomination-5000 { background-color: #276780; }
+.denomination-10000 { background-color: #35333c; }
+.betting-spot > strong { padding: 2px 7px; border-radius: 8px; background: #081120df; font-size: 12px; }
+.betting-spot > small { font-size: 9px; padding: 2px 5px; background: #081120df; border-radius: 4px; white-space: nowrap; }
+.betting-spot.my-bet .chip-stack { filter: drop-shadow(0 0 8px #ebc37580); }
+.betting-spot.locked > small { color: #9aebbc; }
+.chip-edit-actions { display: flex; gap: 10px; }
+.chip-edit-actions button { font-size: 10px; }
+.chip-help { flex-basis: 100%; text-align: center; color: #c1b8cf; font-size: 10px; }
+.bet-notice { order: 0; color: #ffcf8b; font-size: 11px; text-align: center; }
+.ready-label { font-size: 12px; color: #a7e5c6; }
+@keyframes chip-land { from { transform: translateY(-35px) scale(1.2); opacity: .2; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@media (max-width: 600px) and (orientation: portrait) {
+ .betting-spot-0 { left: 13%; top: 36%; }
+ .betting-spot-1 { left: 37%; top: 49%; }
+ .betting-spot-2 { left: 63%; top: 49%; }
+ .betting-spot-3 { left: 87%; top: 36%; }
+ .betting-spot-4 { left: 20%; top: 78%; }
+ .betting-spot-5 { left: 50%; top: 81%; }
+ .betting-spot-6 { left: 80%; top: 78%; }
+ .chip-stack { transform: scale(.8); height: 32px; }
+ .betting-spot > strong { font-size: 10px; }
+ .betting-spot > small { font-size: 8px; }
+ .room-mode .chip-help { font-size: 8px; }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+ .room-mode .chip-help { display: none; }
+ .chip-stack { transform: scale(.7); height: 27px; }
+ .betting-spot > small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .wager-chip { animation: none; } }

@@ -30,6 +30,7 @@ export type TableView = {
   feePolicy: string;
   deadline: number | null;
   betDeadline: number | null;
+  betNotice: string | null;
   seats: ({
     id: string;
     name: string;
@@ -38,6 +39,8 @@ export type TableView = {
     connected: boolean;
     bet: number;
     fee: number;
+    chips: number[];
+    stagedBet: number;
   } | null)[];
   round: Omit<Round, "shoe" | "cursor"> | null;
   allowed: Move[];

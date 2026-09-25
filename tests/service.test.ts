@@ -32,7 +32,7 @@ async function player(data: Store, name: string) {
       nonce: account.nonce,
       tableId,
       kind,
-      payload: kind === "bet" ? {feePolicy: FEE_POLICY, ...payload} : payload,
+      payload: ["bet", "stage-bet"].includes(kind) ? {feePolicy: FEE_POLICY, ...payload} : payload,
     };
     return {
       command,
@@ -330,4 +330,63 @@ test("splitting never adds another table fee", async () => {
   assert.equal(p.account.session.spent,5006);
   assert.equal((await verifyReceipt(t.receipts[0])).valid,true);
   conserved(data);
+});
+
+
+test("staged chips stay unlocked and editable, and each Deal readies only its own player",async()=>{
+  const data=emptyStore(),a=await player(data,"Stack A"),b=await player(data,"Stack B"),t=data.tables["bonkers-room"];
+  await a.send("seat",{index:0});await b.send("seat",{index:1});
+  const draft=(chips:number[])=>({chips,bet:chips.reduce((a,b)=>a+b,0),commitment:t.commitment,entropy:hash("stack entropy"),lockOnDeadline:true});
+  await a.send("stage-bet",draft([500]));
+  const deadline=t.betDeadline;
+  await a.send("stage-bet",draft([500,500]));
+  assert.equal(a.account.balance,100000);assert.equal(a.account.session.spent,0);assert.equal(t.bets[a.account.id],undefined);
+  assert.equal(t.betDeadline,deadline);assert.deepEqual(service(data).view(t,a.account).seats[0]!.chips,[500,500]);
+  await a.send("deal");
+  assert.equal(a.account.balance,98998);assert.equal(t.bets[a.account.id].fee,2);assert.equal(t.round,null);
+  await assert.rejects(()=>a.send("stage-bet",draft([500])),/closed/);
+  await b.send("stage-bet",draft([2500]));await b.send("deal");
+  assert.equal(t.round!.players.length,2);assert.equal(data.feeRevenue,8);
+  while(t.round!.phase==="playing") await [a,b].find(p=>p.account.id===t.round!.players[t.round!.current![0]].id)!.send("stand",{roundId:t.round!.id});
+  assert.equal(t.receipts[0].version,3);assert.equal((await verifyReceipt(t.receipts[0])).valid,true);conserved(data);
+  const altered=structuredClone(t.receipts[0]);altered.bets[a.account.id].command.payload.lockOnDeadline=false;
+  assert.equal((await verifyReceipt(altered)).valid,false);
+});
+
+test("persisted signed drafts auto-lock at the deadline once, even without the browser",async()=>{
+  const data=emptyStore(),a=await player(data,"Offline"),t=data.tables["bonkers-room"];
+  await a.send("seat",{index:0});
+  await a.send("stage-bet",{chips:[500,500],bet:1000,commitment:t.commitment,entropy:hash("offline"),lockOnDeadline:true});
+  const persisted=JSON.parse(JSON.stringify(data)) as Store,table=persisted.tables[t.id];table.betDeadline=Date.now()-1;
+  service(persisted).tick();const balance=persisted.accounts[a.account.id].balance;
+  assert.ok(table.round);assert.equal(table.bets[a.account.id].bet,1000);assert.equal(persisted.feeRevenue,2);
+  service(persisted).tick();assert.equal(persisted.accounts[a.account.id].balance,balance);assert.equal(persisted.feeRevenue,2);conserved(persisted);
+});
+
+test("clearing and leaving cancel staged wagers; stale, forged and over-limit chip requests fail",async()=>{
+  const data=emptyStore(),a=await player(data,"Clear"),t=data.tables["bonkers-room"];
+  await a.send("seat",{index:0});
+  const p={chips:[500],bet:500,commitment:t.commitment,entropy:hash("clear"),lockOnDeadline:true};
+  const e=await a.envelope("stage-bet",p);e.command.payload.bet=1000;
+  await assert.rejects(()=>service(data).command(a.account,e),/signature/);
+  await assert.rejects(()=>a.send("stage-bet",{...p,bet:1000}),/total/);
+  await assert.rejects(()=>a.send("stage-bet",{...p,lockOnDeadline:false}),/Authorize/);
+  await assert.rejects(()=>a.send("stage-bet",{...p,chips:[10000,10000],bet:20000}),/Invalid/);
+  await a.send("stage-bet",p);await a.send("stage-bet",{...p,chips:[],bet:0});
+  assert.equal(t.betDeadline,null);assert.equal(a.account.balance,100000);
+  await a.send("stage-bet",p);await a.send("leave");t.betDeadline=Date.now()-1;service(data).tick();assert.equal(t.round,null);assert.equal(a.account.balance,100000);
+});
+
+test("deadline rechecks revoked sessions, balances, minimum stakes and house reserves",async()=>{
+  for(const reason of ["revoked","balance","minimum","reserve"]){
+    const data=emptyStore(),a=await player(data,reason),t=data.tables["bonkers-room"];
+    await a.send("seat",{index:0});
+    const bet=reason==="minimum"?100:500;
+    await a.send("stage-bet",{chips:[bet],bet,commitment:t.commitment,entropy:hash(reason),lockOnDeadline:true});
+    if(reason==="revoked") await a.send("revoke");
+    if(reason==="balance") a.account.balance=0;
+    if(reason==="reserve") data.house=0;
+    t.betDeadline=Date.now()-1;service(data).tick();
+    assert.equal(t.round,null);assert.equal(t.bets[a.account.id],undefined);assert.ok(t.betNotices?.[a.account.id]);assert.equal(data.feeRevenue??0,0);
+  }
 });

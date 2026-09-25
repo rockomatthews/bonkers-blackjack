@@ -84,3 +84,11 @@ New demo accounts receive a unique random username. Players may claim one availa
 Profiles have stable, shareable account-ID links. Preset avatars and uploaded profile images remain editable after the name is locked. Uploads are resized and re-encoded as 160px WebP images on the server, stored separately from game state, and served through an image endpoint. Public profiles expose only the player ID, username, avatar, and name-change status.
 
 For an existing database, apply `database/profile-images.sql` before deploying this feature. Fresh installations use `database/schema.sql`, which includes both private tables. Neither table grants client database access. Local development saves images under the ignored data directory. Profile names and images are public; balances, session keys, and wallet information are not part of public profiles.
+
+## Chip staging and Deal
+
+Each chip click adds that denomination to a visible stack at the player's betting spot. Undo removes the last chip, Clear removes the stack, and the amount input creates the matching denominations. Staged chips are signed and persisted but do not deduct the balance or charge a fee. The first stack starts the shared 15-second betting window; edits do not extend it. Refreshing restores the latest saved stack.
+
+Deal locks only that player's wager. The hand starts when every seated player is ready or the betting deadline expires. At the deadline, saved stacks are checked again for valid sessions, table limits, player balance, and house reserves, then locked once. Invalid stacks are cleared with a visible explanation; empty seats/stacks sit out. Clearing or leaving before lock cancels the draft. A disconnected player's saved stack can be locked at timeout by the next server request, following the demo's existing request-driven timer model.
+
+Version 3 receipts support signed chip-stage authorization, including the chip total, fee policy, and automatic-lock consent. Version 1 and 2 receipts remain verifiable. Optional draft state fits the existing private JSONB record; no SQL migration is needed. The research contracts do not implement chip staging or deadline authorization.

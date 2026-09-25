@@ -29,6 +29,8 @@ export type Table = {
     string,
     { bet: number; entropy: string; envelope: SignedCommand; fee?: number }
   >;
+  drafts?: Record<string, { envelope: SignedCommand; sessionExpiry: number }> ;
+  betNotices?: Record<string, string>;
   actions: Receipt["actions"];
   deadline: number | null;
   betDeadline: number | null;
