@@ -440,7 +440,7 @@ export default function Club() {
   useEffect(() => {
     if (table) setBet((b) => Math.max(table.min, Math.min(table.max, b)));
   }, [table?.id, table?.min, table?.max]);
-  const me = table?.seats.findIndex((s) => s?.id === account?.id) ?? -1;
+  const me = account ? (table?.seats.findIndex((s) => s?.id === account.id) ?? -1) : -1;
   useEffect(() => {
     const viewport = roomViewport.current;
     if (!viewport) return;

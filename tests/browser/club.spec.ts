@@ -178,3 +178,19 @@ test("mobile navigation exposes account and session revocation", async ({
     .click();
   await expect(page.getByText("No active spending permission.")).toBeVisible();
 });
+
+
+test("a visitor can join directly from an empty orbital seat", async ({ page }) => {
+  await page.goto("/#table/bonkers-room");
+  const seat = page.getByRole("button", {name:"Take seat 1",exact:true});
+  await expect(seat).toBeEnabled();
+  await expect(page.getByRole("button", {name:"Leave seat",exact:true})).toHaveCount(0);
+  await seat.click();
+  await page.getByLabel("Your table name").fill("Orbital visitor");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button",{name:"Let’s play"}).click();
+  await expect(page).toHaveURL(/#table\/bonkers-room/);
+  await seat.click();
+  await expect(page.locator(".seat.mine strong")).toContainText("Orbital visitor");
+  await expect(page.locator(".fee-disclosure")).toContainText("$25.06 total");
+});
