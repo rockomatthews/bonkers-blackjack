@@ -210,6 +210,8 @@ export default function Club() {
     const route = () => {
       const parts = window.location.hash.slice(1).split("/");
       setPage(parts[0] || "home");
+      setMenu(false);
+      window.scrollTo(0, 0);
       if (parts[0] === "table") setTableId(parts[1] || "bonkers-room");
     };
     route();
@@ -229,6 +231,11 @@ export default function Club() {
       clearInterval(timer);
     };
   }, []);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
   const api = useCallback(async (path: string, body?: unknown) => {
     const res = await fetch("/api/v1/" + path, {
       method: body === undefined ? "GET" : "POST",
@@ -495,6 +502,7 @@ export default function Club() {
           <a href="#fairness">
             Fair play <ArrowUpRight size={13} />
           </a>
+          {account && <a href="#account">Your account</a>}
         </nav>
         <div className="header-actions">
           {account ? (
@@ -1624,6 +1632,7 @@ export default function Club() {
           <a href="#how-to-play">Rules</a>
           <a href="#fairness">Fairness</a>
           <a href="#history">History</a>
+          <a href="#account">Account</a>
           <span>18+ · PLAY MONEY ONLY</span>
         </div>
         <small>

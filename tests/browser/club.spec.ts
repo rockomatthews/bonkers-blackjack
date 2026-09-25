@@ -153,3 +153,20 @@ test("seven browser identities share a private round, reconnect, and verify iden
     await Promise.all(contexts.map((c) => c.close()));
   }
 });
+
+test("mobile navigation exposes account and session revocation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await join(page, "Mobile player");
+  await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Set spending permission" }),
+  ).toBeVisible();
+  await expect(page.locator("nav")).not.toHaveClass("open");
+  await page
+    .getByRole("button", { name: "Revoke session", exact: true })
+    .click();
+  await expect(page.getByText("No active spending permission.")).toBeVisible();
+});
