@@ -30,6 +30,8 @@ No environment variables are needed for a single-process local demo. Local state
 3. Create/connect a **dedicated Supabase database** from the Vercel project's Storage/Marketplace integration, as planned by the owner. Do not repurpose another product's database.
 4. In Supabase SQL Editor, run [`database/schema.sql`](database/schema.sql). It creates only `bonkers_private.demo_state`; the schema is not exposed through the Data API, RLS is enabled, and anonymous/authenticated access is revoked.
 5. Set **`POSTGRES_URL`** in Vercel to the project's transaction-pooler connection URL from Supabase's Connect dialog. The integration may supply this already. `DATABASE_URL` is supported as a fallback. Use the actual provided pooler host; do not invent it. Use certificate-validated TLS (`sslmode=verify-full`, with Supabase's CA if needed); never disable certificate verification. Never add a `NEXT_PUBLIC_` prefix to credentials.
+The server and setup script automatically trust the public Supabase Root 2021 CA for Supabase database/pooler hosts while verifying both certificate and hostname. The bundled certificate expires in April 2031; review it when Supabase rotates its CA. Other PostgreSQL hosts retain their provided TLS settings.
+
 6. Redeploy. Visit `/api/v1/config` (`sharedTablesReady: true`), then `/api/v1/health` (`storage: postgres`, `conserved: true`). The config endpoint detects configuration presence; the health endpoint verifies the actual database connection/schema.
 7. Complete signup, deposit simulation, a shared round, a reload, receipt verification, and failed-withdrawal recovery on the deployed site before calling the database integration verified.
 

@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { resolve } from "node:path";
 import { Pool } from "pg";
+import { postgresConfig } from "./postgres";
 import type { Store } from "./store";
 const globals = globalThis as unknown as {
   bonkersPool?: Pool;
@@ -28,7 +29,7 @@ export async function transaction<T>(
   const connectionString = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
   if (connectionString) {
     globals.bonkersPool ??= new Pool({
-      connectionString,
+      ...postgresConfig(connectionString),
       max: 1,
       idleTimeoutMillis: 10000,
       connectionTimeoutMillis: 10000,
