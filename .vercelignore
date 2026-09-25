@@ -1,0 +1,6 @@
+.data
+contracts
+.git
+test-results
+playwright-report
+docs/screenshots

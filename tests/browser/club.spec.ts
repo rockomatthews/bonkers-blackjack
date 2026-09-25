@@ -1,0 +1,155 @@
+import { test, expect, type Page } from "@playwright/test";
+async function join(page: Page, name: string) {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Join the club" }).click();
+  await page.getByLabel("Your table name").fill(name);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Let’s play" }).click();
+  await expect(page).toHaveURL(/#lobby/);
+}
+test("desktop and mobile landing preserve logo and fit the viewport", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "A little mad. All blackjack." }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "docs/screenshots/desktop-home.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "docs/screenshots/mobile-home.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  expect(errors).toEqual([]);
+});
+test("cashier simulates a deposit, rejects live addresses, and refunds failed withdrawal", async ({
+  page,
+}) => {
+  await join(page, "Cashier browser");
+  await page.getByRole("button", { name: /\$1,000.00/ }).click();
+  await page.getByRole("button", { name: "Create demo deposit" }).click();
+  await page.getByRole("button", { name: "Simulate incoming deposit" }).click();
+  await expect(page.getByRole("heading", { name: "All done." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /\$1,100.00/ })).toBeVisible();
+  await page.getByRole("button", { name: "New transfer" }).click();
+  await page.getByRole("button", { name: "Withdraw", exact: true }).click();
+  await page.getByLabel("Demo destination").fill("demo:test-wallet");
+  await page.getByRole("button", { name: "Simulate withdrawal" }).click();
+  await page.getByRole("button", { name: "Test a failed transfer" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Route failed." }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /\$1,100.00/ })).toBeVisible();
+});
+test("seven browser identities share a private round, reconnect, and verify identical receipts", async ({
+  browser,
+}) => {
+  const contexts = await Promise.all(
+    Array.from({ length: 7 }, () => browser.newContext()),
+  );
+  const pages = await Promise.all(contexts.map((c) => c.newPage()));
+  try {
+    await Promise.all(pages.map((p, i) => join(p, "Player " + (i + 1))));
+    await pages[0]
+      .getByRole("button", { name: "Create a private table" })
+      .click();
+    await pages[0]
+      .getByLabel("Table name", { exact: true })
+      .fill("The seven seats");
+    await pages[0]
+      .getByRole("button", { name: "Create private table", exact: true })
+      .click();
+    await expect(pages[0]).toHaveURL(/#table\/private-/);
+    const url = pages[0].url();
+    await Promise.all(pages.slice(1).map((p) => p.goto(url)));
+    for (let i = 0; i < 7; i++)
+      await pages[i]
+        .getByRole("button", { name: "Take seat " + (i + 1), exact: true })
+        .click();
+    await expect(pages[0].locator(".seat strong")).toHaveCount(7);
+    await Promise.all(
+      pages.map((p) =>
+        p.getByRole("button", { name: "Place bet", exact: true }).click(),
+      ),
+    );
+    await expect(
+      pages[0].getByRole("button", { name: "Deal table", exact: true }),
+    ).toBeVisible();
+    await expect(
+      pages[0].locator(".seat>small").filter({ hasText: "$25.00" }),
+    ).toHaveCount(7);
+    await pages[0]
+      .getByRole("button", { name: "Deal table", exact: true })
+      .click();
+    await pages[3].reload();
+    for (let guard = 0; guard < 40; guard++) {
+      if (
+        await pages[0]
+          .getByRole("button", { name: "Next round", exact: true })
+          .isVisible()
+      )
+        break;
+      let acted = false;
+      for (const p of pages) {
+        const stand = p.getByRole("button", { name: "Stand", exact: true });
+        if ((await stand.isVisible()) && (await stand.isEnabled())) {
+          await stand.click();
+          acted = true;
+          break;
+        }
+      }
+      if (!acted) await pages[0].waitForTimeout(300);
+    }
+    await expect(
+      pages[0].getByRole("button", { name: "Next round", exact: true }),
+    ).toBeVisible();
+    await expect(
+      pages[3].getByRole("button", { name: "Next round", exact: true }),
+    ).toBeVisible();
+    const receipts = await Promise.all(
+      pages.map((p) =>
+        p.evaluate(async () => {
+          const id = JSON.parse(localStorage.getItem("bonkers-demo-identity")!);
+          return fetch("/api/v1/receipts", {
+            headers: { Authorization: "Bearer " + id.token },
+          }).then((r) => r.json());
+        }),
+      ),
+    );
+    expect(receipts[0][0].wagers).toHaveLength(7);
+    for (const r of receipts) expect(r[0].hash).toBe(receipts[0][0].hash);
+    await pages[0].screenshot({
+      path: "docs/screenshots/seven-player-table.png",
+      fullPage: true,
+    });
+    await pages[0].setViewportSize({ width: 390, height: 844 });
+    await pages[0].screenshot({
+      path: "docs/screenshots/mobile-table.png",
+      fullPage: true,
+    });
+    expect(
+      await pages[0].evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await pages[0].goto("/#fairness");
+    await pages[0]
+      .getByRole("button", { name: "Verify my latest round" })
+      .click();
+    await expect(
+      pages[0].getByText("Round verified", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await Promise.all(contexts.map((c) => c.close()));
+  }
+});

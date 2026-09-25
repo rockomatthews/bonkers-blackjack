@@ -1,0 +1,68 @@
+# Bonkers Blackjack
+
+A Next.js social-blackjack **play-money prototype**, using the owner's original logo. Built for GitHub → Vercel with a dedicated Supabase PostgreSQL database.
+
+## What works
+
+- Responsive landing page, lobby, seven-seat public/private tables, invitation links, spectators, reactions, optional sound, and account/history/fairness screens.
+- Server-authoritative six-deck blackjack: fresh shuffle, 3:2 naturals, S17, dealer peek, doubling, splitting to four hands, and automatic stand on a 25-second timeout.
+- Browser-local demo identities, P-256 signed commands, nonce replay protection, explicit expiring gameplay budgets, and reconnect after refresh.
+- Simulated BTC/ETH/SOL/USDT/USDC cashier with quotes, demo-only QR identifiers, conversion states, expiry, failed-route tests, and withdrawal refunds.
+- SHA-256 shuffle commitments, player entropy, signed transcripts, downloadable receipts, and a browser/CLI replay verifier.
+- PostgreSQL transactions serialize concurrent requests across Vercel instances. Local development uses an atomic JSON store.
+
+**No real money, real crypto address, embedded wallet, passkey provider, swap provider, deployed contract, or blockchain settlement is enabled.** The demo signing key is not a crypto wallet and is stored in this browser's local storage. Clearing storage loses that demo identity.
+
+## Run locally
+
+```sh
+npm ci
+npm run dev
+# http://127.0.0.1:3000
+```
+
+No environment variables are needed for a single-process local demo. Local state persists in `.data/state.json`, which is ignored by Git. Each new demo account receives $1,000 of play money; the signup checkbox explicitly authorizes a $500 one-hour session. The cashier is a simulation/faucet, not a financial ledger.
+
+## Vercel + Supabase setup
+
+1. Import this GitHub repository into Vercel. Framework: **Next.js**, root: repository root. Use Node.js 24.
+2. The deployed landing page and guides work immediately. Without a database, shared-table signup is disabled and tables show an opening-soon state.
+3. Create/connect a **dedicated Supabase database** from the Vercel project's Storage/Marketplace integration, as planned by the owner. Do not repurpose another product's database.
+4. In Supabase SQL Editor, run [`database/schema.sql`](database/schema.sql). It creates only `bonkers_private.demo_state`; the schema is not exposed through the Data API, RLS is enabled, and anonymous/authenticated access is revoked.
+5. Set **`POSTGRES_URL`** in Vercel to the project's transaction-pooler connection URL from Supabase's Connect dialog. The integration may supply this already. `DATABASE_URL` is supported as a fallback. Use the actual provided pooler host; do not invent it. Use certificate-validated TLS (`sslmode=verify-full`, with Supabase's CA if needed); never disable certificate verification. Never add a `NEXT_PUBLIC_` prefix to credentials.
+6. Redeploy. Visit `/api/v1/config` (`sharedTablesReady: true`), then `/api/v1/health` (`storage: postgres`, `conserved: true`). The config endpoint detects configuration presence; the health endpoint verifies the actual database connection/schema.
+7. Complete signup, deposit simulation, a shared round, a reload, receipt verification, and failed-withdrawal recovery on the deployed site before calling the database integration verified.
+
+Alternatively, apply the schema from a secure environment with `POSTGRES_URL` set:
+
+```sh
+npm run db:setup
+```
+
+Use a separate Supabase project/database for Vercel preview deployments. Do not point experimental PR previews at production state.
+
+## Verification
+
+```sh
+npm run typecheck
+npm test
+npx playwright install chromium  # once per machine
+npm run test:e2e
+npm run build
+npm run contracts:test          # requires Foundry
+node --import tsx scripts/verify-receipt.ts path/to/receipt.json
+```
+
+Playwright uses seven independent browser contexts with isolated identities, a private table, real signed HTTP commands, a reload during the round, and matching receipts. It starts its own Next.js server; stop another `next dev` process for this project before running it. Screenshots are saved under `docs/screenshots/`.
+
+## Architecture and limits
+
+See [`docs/architecture.md`](docs/architecture.md), [`docs/production-roadmap.md`](docs/production-roadmap.md), and [`contracts/README.md`](contracts/README.md).
+
+This release uses one-second table polling rather than a persistent WebSocket server because it is hosted on Vercel. Deadlines live in persisted state and are evaluated transactionally on each request. If everyone goes offline, the next request resumes timeout handling; funds do not disappear. There is no background cron or live-money liveness guarantee.
+
+The single locked JSONB record deliberately serializes a small demo. It is **not a high-throughput production schema**. Before real-money use, replace it with normalized accounts, table streams, immutable events, ledger entries, and contract indexing. Supabase Realtime can provide private, authenticated update notifications at that stage; authoritative decisions must remain transactional.
+
+## Brand
+
+**Bonkers Blackjack** and `public/bonkers-blackjack-logo.png` were supplied by the owner. The source image is copied byte-for-byte; it is not regenerated. This selection supersedes the earlier proposal to explore three names. Red, black, ivory, and gold carry through the site; table themes provide the visual variation.
