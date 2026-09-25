@@ -1,3 +1,4 @@
+import { FEE_POLICY, LEGACY_FEE_POLICY, roundFee } from "./fees";
 import {
   act,
   hash,
@@ -16,7 +17,8 @@ export type Command = {
 };
 export type SignedCommand = { command: Command; signature: string };
 export type Receipt = {
-  version: 1;
+  version: 1 | 2;
+  fees?: Record<string, { amount: number; policy: string }>;
   roundId: string;
   tableId: string;
   rules: string;
@@ -86,7 +88,7 @@ export async function verifyReceipt(
   receipt: Receipt,
 ): Promise<{ valid: boolean; detail: string }> {
   try {
-    if (receipt.version !== 1 || receipt.rules !== RULES)
+    if (![1, 2].includes(receipt.version) || receipt.rules !== RULES)
       throw Error("Unsupported receipt or rules version");
     const { hash: claimed, ...body } = receipt;
     if (hash(canonical(body)) !== claimed) throw Error("Receipt hash mismatch");
@@ -109,10 +111,22 @@ export async function verifyReceipt(
       seen.add(e.command.id);
       lastNonce.set(actor, e.command.nonce);
     };
+    if (receipt.version === 2 && (!receipt.fees || Object.keys(receipt.fees).length !== receipt.wagers.length))
+      throw Error("Missing or extra fee records");
     for (const w of receipt.wagers) {
       const e = receipt.bets[w.id];
       if (!e) throw Error("Missing signed wager");
       await check(w.id, e);
+      const policy = e.command.payload.feePolicy;
+      if (receipt.version === 1) {
+        if (policy !== undefined || receipt.fees !== undefined) throw Error("Unexpected legacy fee");
+      } else {
+        const fee = receipt.fees?.[w.id];
+        const expectedPolicy = policy === undefined ? LEGACY_FEE_POLICY : FEE_POLICY;
+        if ((policy !== undefined && policy !== FEE_POLICY) ||
+            fee?.policy !== expectedPolicy || fee?.amount !== (policy === undefined ? 0 : roundFee(w.bet)))
+          throw Error("Fee does not match signed wager");
+      }
       if (
         e.command.kind !== "bet" ||
         e.command.payload.bet !== w.bet ||
@@ -144,7 +158,7 @@ export async function verifyReceipt(
     return {
       valid: true,
       detail:
-        "Shuffle, signed wagers, player actions, and payouts reproduce exactly. Server timing and pre-round publication are not independently attested in this demo.",
+        "Shuffle, signed wagers, player actions, payouts, and recorded fees reproduce exactly. Server timing and pre-round publication are not independently attested in this demo.",
     };
   } catch (e) {
     return {

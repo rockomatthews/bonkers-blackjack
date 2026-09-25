@@ -1,3 +1,4 @@
+import { FEE_POLICY, roundFee } from "../shared/fees";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { service } from "../server/service";
@@ -8,7 +9,7 @@ import {
   type Command,
   type SignedCommand,
 } from "../shared/protocol";
-import { hash } from "../shared/game";
+import { hash, startRound, allowed } from "../shared/game";
 import type { Account, Store } from "../server/store";
 async function player(data: Store, name: string) {
   const keys = await crypto.subtle.generateKey(
@@ -31,7 +32,7 @@ async function player(data: Store, name: string) {
       nonce: account.nonce,
       tableId,
       kind,
-      payload,
+      payload: kind === "bet" ? {feePolicy: FEE_POLICY, ...payload} : payload,
     };
     return {
       command,
@@ -50,7 +51,7 @@ async function player(data: Store, name: string) {
     tableId = "bonkers-room",
   ) => service(data).command(account, await envelope(kind, payload, tableId));
   await send("authorize", { limit: 100000 });
-  return { account, envelope, send };
+  return { account, envelope, send, keys };
 }
 const conserved = (d: Store) =>
   assert.equal(
@@ -244,4 +245,89 @@ test("private rooms are unguessable and seat ownership cannot be stolen", async 
   await assert.rejects(() => b.send("seat", { index: 0 }, id), /taken/);
   await a.send("leave", {}, id);
   assert.equal(d.tables[id].seats[0], null);
+});
+
+
+test("table fee is explicit, conserved, session-capped and charged only once across outcomes", async () => {
+  assert.equal(roundFee(500), 1);
+  assert.equal(roundFee(2500), 6);
+  assert.equal(roundFee(10000), 25);
+  const results = new Set<string>();
+  for (let i = 0; i < 80; i++) {
+    const data = emptyStore(), p = await player(data, "Fee QA");
+    const t = data.tables["bonkers-room"];
+    t.seed = "fee-scenario-" + i; t.commitment = hash(t.seed);
+    await p.send("seat", {index:0});
+    const before = p.account.balance;
+    await p.send("bet", {bet:2500, entropy:hash("fee-entropy"), commitment:t.commitment});
+    assert.equal(p.account.balance, before - 2506);
+    assert.equal(p.account.session.spent, 2506);
+    assert.equal(data.feeRevenue, 6);
+    await p.send("deal");
+    if (t.round!.current) await p.send("double", {roundId:t.round!.id});
+    const r = t.receipts[0];
+    assert.equal(r.version, 2);
+    assert.equal(r.fees![p.account.id].amount, 6);
+    assert.equal(data.feeRevenue, 6);
+    assert.equal(p.account.balance, before - t.round!.players[0].committed - 6 + t.round!.players[0].payout);
+    results.add(t.round!.players[0].hands[0].result!);
+    assert.equal((await verifyReceipt(r)).valid, true);
+    const altered = structuredClone(r); altered.fees![p.account.id].amount++;
+    const {hash:_, ...body} = altered; altered.hash = hash(canonical(body));
+    assert.equal((await verifyReceipt(altered)).valid, false);
+    const revenue = data.feeRevenue; service(data).tick(); service(data).tick();
+    assert.equal(data.feeRevenue, revenue); conserved(data);
+  }
+  assert.ok(results.has("You win") && results.has("Push") && (results.has("Dealer wins") || results.has("Bust")));
+});
+
+test("a fee cannot exceed account or session authorization and unsigned pricing is rejected", async () => {
+  const data=emptyStore(), p=await player(data,"Limits");
+  await p.send("seat",{index:0});
+  const payload={bet:2500,entropy:hash("limits"),commitment:data.tables["bonkers-room"].commitment};
+  await assert.rejects(()=>p.send("bet",{...payload,feePolicy:"wrong"}), /Fee policy/);
+  p.account.session.limit=2500;
+  await assert.rejects(()=>p.send("bet",payload), /Session spending/);
+  p.account.session.limit=50000; p.account.balance=2500;
+  await assert.rejects(()=>p.send("bet",payload), /Not enough/);
+  assert.equal(data.feeRevenue,undefined);
+});
+
+test("in-flight legacy wagers settle without retroactive fees and v1 receipts remain verifiable", async () => {
+  const data=emptyStore(), p=await player(data,"Legacy");
+  await p.send("seat",{index:0});
+  const t=data.tables["bonkers-room"];
+  await p.send("bet",{bet:2500,entropy:hash("legacy"),commitment:t.commitment});
+  const wager=t.bets[p.account.id];
+  p.account.balance+=wager.fee!; p.account.session.spent-=wager.fee!; data.house-=wager.fee!; data.feeRevenue=0;
+  delete wager.fee; delete wager.envelope.command.payload.feePolicy;
+  wager.envelope.signature=Buffer.from(await crypto.subtle.sign({name:"ECDSA",hash:"SHA-256"},p.keys.privateKey,new TextEncoder().encode(canonical(wager.envelope.command)))).toString("base64");
+  await p.send("deal");
+  while(t.round!.current) await p.send("stand",{roundId:t.round!.id});
+  const r=t.receipts[0]; assert.equal(r.fees![p.account.id].amount,0);
+  assert.equal((await verifyReceipt(r)).valid,true);
+  r.version=1; delete r.fees;
+  const {hash:_,...body}=r; r.hash=hash(canonical(body));
+  assert.equal((await verifyReceipt(r)).valid,true); conserved(data);
+});
+
+
+test("splitting never adds another table fee", async () => {
+  const data=emptyStore(), p=await player(data,"Split fee");
+  const t=data.tables["bonkers-room"], entropy=hash("split-fee");
+  let chosen="";
+  for(let i=0;i<1000;i++) {
+    const seed="split-fee-"+i;
+    const round=startRound("search",[{id:p.account.id,name:p.account.name,bet:2500,entropy}],seed);
+    if(allowed(round,p.account.id,p.account.balance).includes("split")){chosen=seed;break;}
+  }
+  assert.ok(chosen); t.seed=chosen;t.commitment=hash(chosen);
+  await p.send("seat",{index:0});
+  await p.send("bet",{bet:2500,entropy,commitment:t.commitment});
+  await p.send("deal");await p.send("split",{roundId:t.round!.id});
+  while(t.round!.current) await p.send("stand",{roundId:t.round!.id});
+  assert.equal(data.feeRevenue,6);
+  assert.equal(p.account.session.spent,5006);
+  assert.equal((await verifyReceipt(t.receipts[0])).valid,true);
+  conserved(data);
 });

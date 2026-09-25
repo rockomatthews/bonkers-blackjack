@@ -37,6 +37,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import QRCode from "qrcode";
+import { FEE_POLICY, roundFee } from "../shared/fees";
 import { money, cardLabel, suit, total, hash } from "../shared/game";
 import {
   ASSETS,
@@ -161,6 +162,7 @@ function Dialog({
   );
 }
 export default function Club() {
+  const roomViewport = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState("home"),
     [tableId, setTableId] = useState("bonkers-room");
   const [identity, setIdentity] = useState<Identity | null>(null),
@@ -439,6 +441,19 @@ export default function Club() {
     if (table) setBet((b) => Math.max(table.min, Math.min(table.max, b)));
   }, [table?.id, table?.min, table?.max]);
   const me = table?.seats.findIndex((s) => s?.id === account?.id) ?? -1;
+  useEffect(() => {
+    const viewport = roomViewport.current;
+    if (!viewport) return;
+    const centerSeat = () => {
+      if (viewport.scrollWidth <= viewport.clientWidth) return;
+      const position = me >= 0 ? [0.2, 0.28, 0.39, 0.5, 0.61, 0.72, 0.8][me] : 0.5;
+      viewport.scrollLeft = viewport.scrollWidth * position - viewport.clientWidth / 2;
+    };
+    const observer = new ResizeObserver(centerSeat);
+    observer.observe(viewport);
+    centerSeat();
+    return () => observer.disconnect();
+  }, [table?.id, me]);
   const ownRound = table?.round?.players.find((p) => p.id === account?.id);
   const myTurn =
     !!table?.round?.current &&
@@ -689,9 +704,10 @@ export default function Club() {
                   ]
               ).map((t, i) => (
                 <article className={"table-tile " + t.theme} key={t.id}>
-                  <div className="tile-art">
+                  <div className={"tile-art " + (t.id === "bonkers-room" ? "orbital-preview" : "")}>
+                    {t.id === "bonkers-room" && <Image src="/pokerRoom.png" alt="The Bonkers Room overlooking Earth and a spiral galaxy" fill sizes="(max-width: 800px) 100vw, 420px" />}
                     <span className="table-tag">
-                      {["THE ORIGINAL", "AFTER HOURS", "RAISE THE STANDARD"][i]}
+                      {["ROOM 01 · ORBITAL", "AFTER HOURS", "RAISE THE STANDARD"][i]}
                     </span>
                     <div className="mini-felt">
                       <span>BONKERS</span>
@@ -811,7 +827,10 @@ export default function Club() {
             </div>
             {table ? (
               <>
-                <div className={"game-surface " + table.theme}>
+                <p className="room-pan-hint">Swipe across the room to find your seat. Your controls stay below.</p>
+                <div className="room-viewport" ref={roomViewport} tabIndex={0} aria-label="Blackjack room. Scroll horizontally on smaller screens.">
+                <div className={"game-surface " + table.theme + ((table.id === "bonkers-room" || table.private) ? " orbital-room" : "")}>
+                  {(table.id === "bonkers-room" || table.private) && <Image src="/pokerRoom.png" alt="Bonkers Blackjack orbital lounge above Earth, with seven seats around the table" fill sizes="(max-width: 1000px) 1000px, 1440px" loading="eager" className="room-backdrop" />}
                   <div className="felt-lines" />
                   <div className="dealer-zone">
                     <div className="dealer-badge">
@@ -859,7 +878,7 @@ export default function Club() {
                         {ownRound && (
                           <b>
                             {" "}
-                            · {money(ownRound.payout - ownRound.committed)} net
+                            · {money(ownRound.payout - ownRound.committed - (table.seats[me]?.fee ?? 0))} net
                           </b>
                         )}
                       </span>
@@ -981,6 +1000,20 @@ export default function Club() {
                     </div>
                   )}
                 </div>
+                </div>
+                {ownRound && <div className="your-hands" aria-label="Your hands">
+                  <span className="eyebrow" aria-live="polite">{myTurn ? `YOUR TURN · ${remaining}s` : table.round?.phase === "settled" ? "ROUND COMPLETE" : "YOUR HANDS · WAITING FOR YOUR TURN"}</span>
+                  {ownRound.hands.map((hand, index) => <div className={"your-hand " + (myTurn && table.round?.current?.[1] === index ? "current-hand" : "")} key={index}>
+                    <div className="hand-cards">{hand.cards.map((card, i) => <Card key={i} value={card} small />)}</div>
+                    <strong>{total(hand.cards).value} {hand.result ? "· " + hand.result : ""}</strong>
+                    <small>{money(hand.bet)} wager</small>
+                  </div>)}
+                </div>}
+                <div className="fee-disclosure">
+                  <span>0.25% table fee · initial wager only · rounded down to the cent.</span>
+                  <span>No extra fee for splits or doubles. Applies to wins, losses, and ties.</span>
+                  {me >= 0 && !table.round && !table.seats[me]?.bet && Number.isSafeInteger(bet) && bet >= 0 && <strong>{money(bet)} wager + {money(roundFee(bet))} fee = {money(bet + roundFee(bet))} total</strong>}
+                </div>
                 <div className="table-controls">
                   <div className="control-balance">
                     <small>AVAILABLE PLAY MONEY</small>
@@ -1063,7 +1096,7 @@ export default function Club() {
                       <>
                         <span className="bet-locked">
                           <LockKeyhole size={16} />{" "}
-                          {money(table.seats[me]!.bet)} locked
+                          {money(table.seats[me]!.bet)} wager locked · {money(table.seats[me]!.fee)} fee
                         </span>
                         <button
                           className="button primary"
@@ -1132,6 +1165,7 @@ export default function Club() {
                                   bet,
                                   entropy: random(),
                                   commitment: table.commitment,
+                                  feePolicy: FEE_POLICY,
                                 })
                               : setModal("session")
                           }
@@ -1283,6 +1317,7 @@ export default function Club() {
                   pays as a normal win.
                 </li>
                 <li>No insurance, surrender, or side bets.</li>
+                <li>0.25% table fee on the initial wager, rounded down to the nearest cent. Charged once when your wager locks, including wins, losses, and ties. No extra fee for splits or doubles. For example, a $25 wager costs $25.06 including the $0.06 fee. This is additional to the game’s house edge.</li>
                 <li>
                   25 seconds per action. A missed turn or disconnect
                   automatically stands.
@@ -1488,8 +1523,8 @@ export default function Club() {
                             </small>
                           </span>
                           <span className="history-value">
-                            {money(p.payout - p.committed)}
-                            <small>net result</small>
+                            {money(p.payout - p.committed - (r.fees?.[account.id]?.amount ?? 0))}
+                            <small>net · {money(r.fees?.[account.id]?.amount ?? 0)} fee</small>
                           </span>
                           <button
                             className="icon-button"

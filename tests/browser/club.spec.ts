@@ -82,6 +82,8 @@ test("seven browser identities share a private round, reconnect, and verify iden
         .getByRole("button", { name: "Take seat " + (i + 1), exact: true })
         .click();
     await expect(pages[0].locator(".seat strong")).toHaveCount(7);
+    await expect(pages[0].locator(".room-backdrop")).toBeVisible();
+    await expect(pages[0].locator(".fee-disclosure")).toContainText("$25.00 wager + $0.06 fee = $25.06 total");
     await Promise.all(
       pages.map((p) =>
         p.getByRole("button", { name: "Place bet", exact: true }).click(),
@@ -132,6 +134,7 @@ test("seven browser identities share a private round, reconnect, and verify iden
       ),
     );
     expect(receipts[0][0].wagers).toHaveLength(7);
+    expect(Object.values(receipts[0][0].fees).every((fee: any) => fee.amount === 6)).toBe(true);
     for (const r of receipts) expect(r[0].hash).toBe(receipts[0][0].hash);
     await pages[0].screenshot({
       path: "docs/screenshots/seven-player-table.png",

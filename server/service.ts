@@ -16,6 +16,7 @@ import {
   type Transfer,
   type Receipt,
 } from "../shared/protocol";
+import { FEE_POLICY, LEGACY_FEE_POLICY, roundFee } from "../shared/fees";
 import type { Account, Table, Store } from "./store";
 export function service(data: Store) {
   const ACTION_MS = Number(process.env.ACTION_MS ?? 25000),
@@ -111,6 +112,7 @@ export function service(data: Store) {
       max: t.max,
       private: t.private,
       sequence: t.sequence,
+      feePolicy: FEE_POLICY,
       commitment: t.commitment,
       deadline: t.deadline,
       betDeadline: t.betDeadline,
@@ -121,6 +123,7 @@ export function service(data: Store) {
               name: data.accounts[id].name,
               connected: Date.now() - (data.presence[id]?.at ?? 0) < 12000,
               bet: t.bets[id]?.bet ?? 0,
+              fee: t.bets[id]?.fee ?? 0,
             }
           : null,
       ),
@@ -171,7 +174,7 @@ export function service(data: Store) {
       data.house -= p.payout;
     }
     const body: Omit<Receipt, "hash"> = {
-      version: 1,
+      version: 2,
       roundId: t.round.id,
       tableId: t.id,
       rules: t.round.rules,
@@ -189,6 +192,10 @@ export function service(data: Store) {
       bets: Object.fromEntries(
         Object.entries(t.bets).map(([id, b]) => [id, b.envelope]),
       ),
+      fees: Object.fromEntries(Object.entries(t.bets).map(([id, b]) => [id, {
+        amount: b.fee ?? 0,
+        policy: b.fee === undefined ? LEGACY_FEE_POLICY : FEE_POLICY,
+      }])),
       actions: t.actions,
       outcome: outcome(t.round),
     };
@@ -372,12 +379,15 @@ export function service(data: Store) {
         fail("Shuffle changed; please try again");
       if (typeof p.entropy !== "string" || !/^[a-f0-9]{64}$/.test(p.entropy))
         fail("Invalid player entropy");
-      authorize(a, bet);
+      if (p.feePolicy !== FEE_POLICY) fail("Fee policy changed. Refresh before betting.");
+      const fee = roundFee(bet);
+      authorize(a, bet + fee);
       if (data.house - reserved() < bet * 16) fail("Table reserves exhausted");
-      t.bets[a.id] = { bet, entropy: p.entropy as string, envelope: e };
-      a.balance -= bet;
-      a.session.spent += bet;
-      data.house += bet;
+      t.bets[a.id] = { bet, entropy: p.entropy as string, envelope: e, fee };
+      a.balance -= bet + fee;
+      a.session.spent += bet + fee;
+      data.house += bet + fee;
+      data.feeRevenue = (data.feeRevenue ?? 0) + fee;
       t.betDeadline ??= Date.now() + BET_MS;
     } else if (kind === "deal") {
       if (!t.bets[a.id]) fail("Only a betting player can deal");

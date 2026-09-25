@@ -24,7 +24,7 @@ export type Table = {
   round: Round | null;
   bets: Record<
     string,
-    { bet: number; entropy: string; envelope: SignedCommand }
+    { bet: number; entropy: string; envelope: SignedCommand; fee?: number }
   >;
   actions: Receipt["actions"];
   deadline: number | null;
@@ -40,5 +40,6 @@ export type Store = {
   tables: Record<string, Table>;
   house: number;
   initialSupply: number;
+  feeRevenue?: number;
   presence: Record<string, { tableId: string; at: number }>;
 };

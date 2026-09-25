@@ -68,3 +68,11 @@ The single locked JSONB record deliberately serializes a small demo. It is **not
 ## Brand
 
 **Bonkers Blackjack** and `public/bonkers-blackjack-logo.png` were supplied by the owner. The source image is copied byte-for-byte; it is not regenerated. This selection supersedes the earlier proposal to explore three names. Red, black, ivory, and gold carry through the site; table themes provide the visual variation.
+
+## Orbital room and table fee
+
+The owner's `pokerRoom.png` is preserved byte-for-byte in `public/` and used as the backdrop for the first public table and private rooms. Cards, seats, statuses, and controls are live UI overlays. Smaller screens can pan across the room; a separate hand panel keeps every personal hand readable.
+
+New signed wagers acknowledge `initial-wager-25bps-floor-cent-v1`: 0.25% of the initial wager, rounded down to a cent, charged once at wager lock. A $5 wager costs $5.01, $25 costs $25.06, and $100 costs $100.25. Splits and doubles add only their extra stake. The fee applies to wins, losses, naturals, and pushes, counts against the authorized session budget, and is included in the displayed net result. It is additional to the ordinary blackjack house edge, and is revenue rather than guaranteed per-round profit. All amounts remain play money.
+
+Version 2 round receipts include fees and verify them against signed wager pricing. Existing version 1 receipts still verify, and wagers already locked before this release finish without a retroactive charge. Optional stored fee fields require no SQL migration. Real-money contracts remain research prototypes and do not implement this fee policy.

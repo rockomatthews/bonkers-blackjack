@@ -2122,9 +2122,9 @@ footer > small {
     margin-top: 20px;
   }
   .seat {
-    position: relative !important;
-    left: auto !important;
-    bottom: auto !important;
+    position: relative;
+    left: auto;
+    bottom: auto;
     width: 100%;
     min-height: 130px;
     padding-top: 65px;
@@ -2864,3 +2864,74 @@ footer > small {
     margin-left: -9px;
   }
 }
+
+/* User-supplied room artwork is preserved; game elements are separate overlays. */
+.orbital-preview { position: relative; overflow: hidden; }
+.orbital-preview > img { object-fit: cover; }
+.orbital-preview .mini-felt { visibility: hidden; }
+.orbital-preview .table-tag, .orbital-preview .seat-count { z-index: 1; background: #0a1022dc; border: 1px solid #b6865260; padding: 7px 10px; border-radius: 6px; }
+.room-viewport { overflow-x: auto; border-radius: 18px; scrollbar-color: #b78e58 #10121c; margin-top: 22px; }
+.room-pan-hint { display: none; }
+.game-surface.orbital-room {
+  aspect-ratio: 1672 / 941; min-height: 0; min-width: 1000px;
+  border: 0; border-radius: 0; margin: 0; background: #080c18;
+  box-shadow: none; overflow: hidden;
+}
+.orbital-room .room-backdrop { object-fit: contain; z-index: -2; }
+.orbital-room .felt-lines, .orbital-room .felt-wordmark { display: none; }
+.orbital-room .dealer-zone { position: absolute; left: 50%; top: 24%; transform: translateX(-50%); padding: 7px 14px; background: #091421db; border: 1px solid #c3a07570; border-radius: 30px; }
+.orbital-room .dealer-zone .eyebrow { color: #b9c7d9; }
+.orbital-room .dealer-badge { width: 26px; height: 26px; background: #283445; }
+.orbital-room .dealer-note { display: none; }
+.orbital-room .dealer-cards { position: absolute; top: 33%; left: 50%; transform: translateX(-50%); margin: 0; min-height: 0; gap: 5px; }
+.orbital-room .dealer-cards .card { width: 49px; height: 68px; }
+.orbital-room .dealer-cards .card > b { font-size: 24px; }
+.orbital-room .total-badge { position: static; font-size: 12px; background: #071928; }
+.orbital-room .table-status { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; }
+.orbital-room .table-status > span { background: #071323ed; border-color: #d5ac6380; box-shadow: 0 4px 24px #0009; font-size: 12px; }
+.orbital-room .seats { position: absolute; inset: 0; height: auto; margin: 0; display: block; }
+.orbital-room .seat { position: absolute; bottom: auto; width: 11%; min-height: 0; transform: translateX(-50%); gap: 3px; }
+.orbital-room .seat-0 { left: 20%; top: 53%; }
+.orbital-room .seat-1 { left: 28%; top: 61%; }
+.orbital-room .seat-2 { left: 39%; top: 67%; }
+.orbital-room .seat-3 { left: 50%; top: 70%; }
+.orbital-room .seat-4 { left: 61%; top: 67%; }
+.orbital-room .seat-5 { left: 72%; top: 61%; }
+.orbital-room .seat-6 { left: 80%; top: 53%; }
+.orbital-room .seat > strong, .orbital-room .seat > small { background: #070f20ed; padding: 4px 9px; border-radius: 5px; max-width: 100%; font-size: 11px; text-shadow: 0 1px 2px #000; }
+.orbital-room .player-avatar { width: 32px; height: 32px; background: #18253d; box-shadow: 0 3px 12px #000a; }
+.orbital-room .seat.mine .player-avatar { background: #523373; border-color: #ddabff; }
+.orbital-room .seat.active .player-avatar { box-shadow: 0 0 0 5px #efc17a50, 0 0 25px #e9a955a0; }
+.orbital-room .empty-seat { background: #0b1728e8; border: 1px solid #dbb879a6; border-radius: 24px; padding: 8px 13px; color: #f6e7c8; gap: 4px; min-height: 48px; font-size: 11px; box-shadow: 0 3px 18px #0009; }
+.orbital-room .empty-seat > svg { width: 22px; height: 22px; padding: 1px; border: 0; }
+.orbital-room .empty-seat:hover:not(:disabled) { background: #3c2955; box-shadow: 0 0 22px #de9cfc6b; }
+.orbital-room .seat-hands { position: absolute; bottom: 100%; margin-bottom: 6px; display: grid; grid-template-columns: repeat(2, auto); gap: 1px; max-width: 150%; }
+.orbital-room .seat-hands:has(.player-hand:only-child) { grid-template-columns: auto; }
+.orbital-room .seat-hands .card.small { width: 36px; height: 49px; font-size: 12px; }
+.orbital-room .seat-hands .card.small > b { font-size: 19px; }
+.orbital-room .hand-cards .card:not(:first-child) { margin-left: -23px; }
+.orbital-room .hand-total { font-size: 10px; background: #071426ed; }
+.orbital-room .reaction-bubble { top: 21%; bottom: auto; }
+.fee-disclosure { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; padding: 14px 4px; font-size: 11px; color: #aeb7ca; }
+.fee-disclosure strong { color: #f3d69d; }
+.your-hands { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; background: #101725; padding: 16px; border: 1px solid #af916234; border-radius: 12px; margin-top: 14px; }
+.your-hand { display: grid; justify-items: center; gap: 6px; padding: 8px 12px; border-radius: 8px; }
+.your-hand strong { font-size: 13px; }
+.your-hand small { color: #adb8c8; font-size: 11px; }
+@media (max-width: 1000px) {
+  .room-pan-hint { display: block; color: #aab7ce; font-size: 11px; text-align: center; margin-top: 18px; }
+  .room-viewport { margin-top: 10px; }
+  .table-page { padding-left: 12px; padding-right: 12px; }
+  .orbital-room .seat-hands { flex-wrap: nowrap; }
+  .fee-disclosure { flex-direction: column; line-height: 1.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbital-room * { animation: none !important; transition: none !important; }
+}
+
+.orbital-room .seat { padding-top: 0; }
+.orbital-room .seat-hands { top: auto; }
+.orbital-room .seats { padding: 0; }
+.orbital-room .hand-cards .card:not(:first-child) { margin-left: -12px; }
+.orbital-room .player-hand { background: transparent; }
+.orbital-room .player-hand.current-hand { background: #0b152bd9; }
