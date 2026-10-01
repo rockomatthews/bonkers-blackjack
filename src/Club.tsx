@@ -166,7 +166,7 @@ function Dialog({
     </div>
   );
 }
-export default function Club() {
+export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?:boolean}) {
   const [page, setPage] = useState("home"),
     [tableId, setTableId] = useState("bonkers-room");
   const [profileId, setProfileId] = useState("");
@@ -551,6 +551,7 @@ export default function Club() {
           {account && <a href="#account">Your account</a>}
         </nav>
         <div className="header-actions">
+          {cryptoTestingEnabled && <a className="button secondary" href="/crypto-pilot">Crypto testing</a>}
           {account ? (
             <>
               <button className="balance" onClick={openCashier}>
@@ -1822,6 +1823,7 @@ export default function Club() {
       )}
       {modal === "cashier" && (
         <Dialog title="The cashier." onClose={closeModal}>
+          {cryptoTestingEnabled && <p>Real USDC testing uses a separate wallet balance. <a className="text-link" href="/crypto-pilot">Connect a wallet, test, or withdraw your funds →</a></p>}
           <div className="cashier-balance">
             <span>AVAILABLE PLAY MONEY</span>
             <strong>

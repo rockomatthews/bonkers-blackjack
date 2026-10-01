@@ -37,13 +37,15 @@ contract BlackjackGameTest {
   vm.expectRevert();vm.prank(alice);game.act(ID,2,0,bytes32(0));
   if((R.legalMoves(data)&16)==0){vm.expectRevert();vm.prank(alice);game.act(ID,4,5e6,keccak256(data));}
  }
- function testMainnetCandidateRejectsPublicPlayers() public {
+ function testMainnetAcceptsOtherWalletsButProtectsHouse() public {
   vm.chainId(8453);BlackjackGame pilot=new BlackjackGame(token,address(this),address(this));PlayerVault v=pilot.vault();v.setPaused(false);
   token.mint(address(this),1100e6);token.approve(address(v),1100e6);v.fundHouse(1000e6);v.depositFor(address(this),100e6);
   pilot.offer(ID,keccak256(abi.encode(bytes32(uint256(1)))));
-  vm.expectRevert();vm.prank(alice);pilot.join(ID,5e6,bytes32(0));
+  token.mint(alice,10e6);vm.prank(alice);token.approve(address(v),10e6);v.depositFor(alice,10e6);
+  vm.prank(alice);pilot.join(ID,5e6,bytes32(0));
+  vm.expectRevert();vm.prank(alice);v.withdrawProfit(1);
   vm.expectRevert();pilot.join(ID,6e6,bytes32(0));
-  pilot.join(ID,5e6,bytes32(0));require(v.playerLocked()==5e6);
+  pilot.join(ID,5e6,bytes32(0));require(v.playerLocked()==10e6);
  }
 
 }

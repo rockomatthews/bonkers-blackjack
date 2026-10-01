@@ -35,3 +35,11 @@ Owner authorized testing without a specified maximum budget; the UI proposes a s
 - Separate crypto database schema is still unapplied. No public Supabase schema was changed. The local worker uses ignored private files and chain events, not production database infrastructure.
 
 Read `TESTING.md` for start/test/recovery commands. A merge alone must not turn this private pilot into public real-money play.
+
+## Later October 1 update — any wallet
+
+The owner requested removal of the wallet whitelist and public-site testing. The address restriction is now removed from both test UIs and new game-contract deployments. Each wallet's self-test deployment is stored separately. Previous owner-only browser records remain recoverable by their owner so existing funds are not hidden. Existing deployed immutable contracts retain their old restrictions; changing source does not upgrade them.
+
+The local fork browser test completed with a DIFFERENT wallet: deploy, fund, play, settle, and withdraw. Foundry also verifies a second player can join a mainnet-mode game and can withdraw only its own funds. House withdrawals remain treasury-only.
+
+Public navigation/cashier links and route enablement are prepared behind `CRYPTO_PUBLIC_TESTING=1`. That flag has NOT been enabled and these changes have NOT been merged/deployed to the public site. The owner's earlier requirement to wait for the issued license remains unresolved; a question asking whether it has arrived and what jurisdictions it permits is pending. The current per-wallet self-test is still not a shared production dealer service. Earlier owner-only descriptions in this checkpoint describe the previous revision, not new deployments.

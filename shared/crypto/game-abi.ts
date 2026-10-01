@@ -1,6 +1,5 @@
 import {parseAbi} from 'viem';
 export const gameAbi=parseAbi([
- 'function pilotOwner() view returns (address)',
  'function verifier() view returns (address)',
  'function vault() view returns (address)',
  'function operator() view returns (address)',

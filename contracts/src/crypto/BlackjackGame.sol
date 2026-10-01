@@ -10,7 +10,6 @@ contract BlackjackGame {
     BlackjackVerifier public immutable verifier;
     PlayerVault public immutable vault;
     address public immutable operator;
-    address public immutable pilotOwner; // Base mainnet candidate is strictly owner-only until separately audited.
     uint64 public constant TURN_SECONDS=30;
     uint64 public constant OPERATOR_SECONDS=60;
     struct Round {
@@ -25,14 +24,14 @@ contract BlackjackGame {
     event Observed(bytes32 indexed id,bytes data,bool done,uint8 active,uint64 deadline);
     event Acted(bytes32 indexed id,uint8 seat,uint8 move,uint128 extra,bool automatic);
     event Finished(bytes32 indexed id,bytes32 seed,bool failure);
-    constructor(IERC20 token,address treasury,address dealer){require(dealer!=address(0),"operator");operator=dealer;pilotOwner=block.chainid==8453?treasury:address(0);verifier=new BlackjackVerifier();vault=new PlayerVault(token,address(this),treasury);}
+    constructor(IERC20 token,address treasury,address dealer){require(dealer!=address(0),"operator");operator=dealer;verifier=new BlackjackVerifier();vault=new PlayerVault(token,address(this),treasury);}
     modifier onlyOperator(){require(msg.sender==operator,"operator only");_;}
     function exposure(bytes32 id,uint256 seat) public view returns(bytes32){return keccak256(abi.encode(address(this),id,seat));}
     function offer(bytes32 id,bytes32 commitment) external onlyOperator {
         Round storage r=rounds[id];require(r.phase==0&&commitment!=bytes32(0),"used round");r.commitment=commitment;r.phase=1;r.deadline=uint64(block.timestamp+OPERATOR_SECONDS);emit Offered(id,commitment,r.deadline);
     }
     function join(bytes32 id,uint128 stake,bytes32 entropy) external {
-        require(pilotOwner==address(0)||(msg.sender==pilotOwner&&stake<=5e6),"owner pilot only, max 5 USDC");
+        require(block.chainid!=8453||stake<=5e6,"pilot max 5 USDC");
         Round storage r=rounds[id];require(r.phase==1&&block.timestamp<r.deadline&&r.players.length<7,"betting closed");
         for(uint256 i=0;i<r.players.length;i++)require(r.players[i]!=msg.sender,"already seated");
         vault.lock(exposure(id,r.players.length),msg.sender,stake);

@@ -62,4 +62,10 @@ contract PlayerVaultTest {
     function testFuzzSettlementPreservesAssets(uint96 raw) public {
         vault.lock(ID,alice,5e6);vault.settle(ID,uint128(uint256(raw)%80000001),false);conserved();
     }
+    function testIndependentWalletCanDepositWithdrawOnlyOwnFunds() public {
+        address bob=vm.addr(456);token.mint(bob,20e6);vm.prank(bob);token.approve(address(vault),20e6);vault.depositFor(bob,20e6);
+        vm.prank(bob);vault.withdraw(20e6,bob);require(token.balanceOf(bob)==20e6);require(vault.available(alice)==1000e6);
+        vm.expectRevert();vm.prank(bob);vault.withdraw(1,bob);vm.expectRevert();vm.prank(bob);vault.withdrawProfit(1);conserved();
+    }
+
 }

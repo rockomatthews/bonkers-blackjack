@@ -1,5 +1,6 @@
 import {notFound} from 'next/navigation';
 import Pilot from './ui';
+import {cryptoPilotEnabled} from '../../shared/crypto/access';
 export const dynamic='force-dynamic';
-export const metadata={title:'Bonkers — Owner Mainnet Test',robots:{index:false,follow:false}};
-export default function Page(){if(process.env.CRYPTO_LAB_ENABLED!=='1'||process.env.VERCEL)notFound();return <Pilot/>;}
+export const metadata={title:'Bonkers — Wallet Mainnet Test',robots:{index:false,follow:false}};
+export default function Page(){if(!cryptoPilotEnabled())notFound();return <Pilot/>;}

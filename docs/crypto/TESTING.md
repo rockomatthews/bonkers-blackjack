@@ -47,3 +47,9 @@ After Solidity changes, run `npm run crypto:artifact` to regenerate the wallet-d
 No multi-asset conversion is enabled. Direct connected-wallet USDC needs no Privy account or conversion provider. BTC/ETH/SOL/USDT funding needs a separately integrated and approved conversion route. Public production needs independent protocol/contract audit, eligibility requirements, production RPC/indexer/reorg handling, durable jobs, sponsored scoped sessions, operational deployment, and a separate reviewed release. This pilot must not be relabeled as production merely by merging it.
 
 To serve only the owner mainnet screen without starting Anvil, run `npm run crypto:pilot` (stop any server already using port 3107 first). This merely serves the UI; it never deploys or funds anything automatically.
+
+### Any-wallet update
+
+Any Ethereum-compatible wallet can now connect on Base. The previously specified owner address is no longer a login or wagering allowlist. Each wallet's browser self-test is separate; existing mainnet contracts cannot be upgraded by this source change. A different wallet completed the browser flow on a local fork. Every wallet may withdraw **its own** unlocked balance. Only the treasury can withdraw free house funds.
+
+Public-site links are prepared behind `CRYPTO_PUBLIC_TESTING=1`, currently disabled pending resolution of the owner's license-before-use requirement. This supersedes the earlier statement that the pilot unconditionally returns 404 on Vercel. The local Anvil page remains local-only.
