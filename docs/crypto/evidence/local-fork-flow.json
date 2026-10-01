@@ -1,0 +1,35 @@
+{
+  "verifiedAt": "2026-10-01T15:20:15.751Z",
+  "chainId": 31337,
+  "forkBlock": "52039174",
+  "game": "0xa58466a9302a6f986ecc18be04e29206edd33cd0",
+  "vault": "0x244241402baF502A0C3bC3815a77099256d73521",
+  "deposit": "100 USDC",
+  "withdrawal": "10 USDC",
+  "receipt": {
+    "id": "0x752c5dd0e688b63ac819ecb1f52483dc7197e3e5c4eecc6eaec7fe322b060fa4",
+    "seed": "0x97477a3af50f85418bfab645997eccd0b397d27b8a8427650dd857b954a0d495",
+    "commitment": "0x3b49082f6c7cc19cfcdcea76186cf6293aaa815b4e83d70bc4b4588cc8ab92c4",
+    "entropy": "0xdfa2fac63359aaa35f16fba6059ba1c07486b2e0ed716d08f6f795dfea29a27f",
+    "stakes": [
+      "5000000"
+    ],
+    "actions": [
+      {
+        "seat": 0,
+        "move": 2
+      }
+    ],
+    "observations": [
+      "0x0100000101000c01000201000000011f0031",
+      "0x0101010102000c002401010201000001011f0031"
+    ],
+    "payouts": [
+      "0"
+    ],
+    "settlementHash": "0xfbbce94052bf3c7d5faba3ef43b46466493329d1e5c0834feb0a447e02b124f7"
+  },
+  "assets": "100090000000",
+  "accounted": "100090000000",
+  "browserErrors": []
+}

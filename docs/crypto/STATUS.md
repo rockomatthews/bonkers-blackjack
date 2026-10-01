@@ -1,22 +1,37 @@
-# Implementation checkpoint — September 25, 2026
+# Implementation checkpoint — October 1, 2026
 
-Private development branch: `codex/crypto-private`. **Not ready for real-money play or a launch merge.** No mainnet contracts deployed, funds transferred, or public database modified by this work.
+Branch: `codex/crypto-private`. Public `main` remains untouched. **Private crypto testing is implemented; public production is not ready.** No real Base deployment or transaction was performed by the agent.
 
-Implemented locally:
-- Branch-specific Vercel automatic-deployment exclusion; no public crypto navigation.
-- Integer USDC amounts, explicit asset/network registry, private access gate and ES256 identity-token verification.
-- EXACT_INPUT conversion adapter with approval gate, metadata checks and quote amount/deadline validation. Provider responses and routes are not yet live-verified.
-- Read-only Base RPC balance, deposit-event evidence and reconciliation adapter; unsigned owner transaction preparation.
-- Independent initial database schema and transactional/idempotent intent repository. Schema has not been applied or database integration-tested. Supabase CLI migration generation failed on its local telemetry-file permission, so the SQL is explicitly a bootstrap source, not a generated migration.
-- Private readiness endpoint; real money remains disabled.
-- Development PlayerVault: deposits, owner withdrawals, EIP-712 signed withdrawals, separate liabilities and house reserves, fee accounting and game-contract-only settlement.
-- Vault tests cover conservation, reserved collateral, fee refunds, replay/destination binding, pause exits and unauthorized locks.
+## Ready to exercise
 
-Critical remaining engineering:
-- Production seven-player blackjack verifier, authorized game sessions, turn protocol and enforceable operator-failure deadlines. The vault trusts its immutable game contract; that production contract does not exist yet. Do not deploy it with an operator EOA or mock verifier.
-- Embedded-wallet UI, owner proof/recovery, account binding, eligibility enforcement and private cashier screens.
-- Persistent chain/conversion workers, transaction relaying, durable retry/outbox, reorg recovery and reconciliation-driven circuit breakers.
-- API wiring, database integration tests, end-to-end money and multiplayer tests, mainnet-fork and bounded actual-mainnet evidence.
-- Provider acceptance and verified routes, finalized market policy, funded reserves and independent contract/protocol audit.
+- `/crypto-lab`: connected-wallet USDC approval, deposit, available balance, wagers/actions, verified settlement, withdrawal and receipt download on a local Base mainnet fork. A persistent dealer worker derives state from the seed and on-chain actions. There is no simulated database balance credit: test balances live in the local fork's actual contracts.
+- `/crypto-pilot`: wallet-signed deployment/funding/play/withdrawal for an **owner-only Base mainnet test**. Mainnet contract code restricts play to the deploying owner and a maximum initial wager of 5 USDC. The intended wallet is `0x8A0182c099A618583e9EF98716DAcF739b3BD944`. This screen was verified on a separate local fork with chain ID 8453, not on live Base.
+- Solidity verifier candidate replays six-deck shuffle, seven seats, ordered observations/actions, splits, doubles, natural payouts and added stakes. The game enforces seed commitments, stale-observation protection, player auto-stand and collateralized operator timeout.
+- Independent TypeScript replay and downloadable receipts; 40 seven-seat rounds matched Solidity payouts, including 29 splits and 143 doubles.
+- Wallet approvals use explicit amounts. Funds stay segregated in the vault. Mainnet test includes recovery of all unlocked player/house funds back to the owner wallet.
 
-Remote documentation/approval requests have encountered an OpenAI HTTP 401 in the tool approval service. No workaround bypasses that review. Dependency installation did succeed. Remote push and deployment status must be verified separately; local branch creation is not publication.
+Both pages require local enablement and always return 404 on Vercel. Branch automatic deployment remains disabled. The current lab is http://127.0.0.1:3107/crypto-lab; the owner test is http://127.0.0.1:3107/crypto-pilot. Open in a browser with the wallet extension.
+
+## Verification evidence
+
+- 45 Node tests passed.
+- 24 Foundry tests passed, including fuzzing, seven seats, altered observations, illegal/stale actions, owner-only mainnet restriction and failure recovery.
+- Browser local flow: 100 USDC deposit, 5 USDC wager, verified settlement, 10 USDC withdrawal; contract assets equaled accounted assets.
+- Browser owner-pilot flow: deploy, fund, play, settle, withdraw player and house funds. Starting and ending USDC were identical because the same owner played both roles. Test execution was localhost Anvil only.
+- Solidity and TypeScript payout comparison passed for 309 hands across 40 rounds.
+- TypeScript/build checks and artifact equality are part of the final branch verification.
+- Screenshots and JSON under `docs/crypto/evidence/`; no private keys or unrevealed seeds are included.
+
+## Current real-mainnet prerequisite
+
+Owner authorized testing without a specified maximum budget; the UI proposes a small initial allocation instead. On October 1, read-only Base RPC queries returned **zero ETH and zero native USDC** for the supplied wallet. Initial pilot funding is **85.01 USDC** (75 house reserve + 10.01 player balance) plus ETH for gas. The owner must fund the wallet and confirm transactions through their wallet extension. The agent has not imported keys or broadcast mainnet transactions.
+
+## Remaining before public production
+
+- Independent contract/protocol and game-math audit. `REVIEW.md` is internal engineering review only.
+- Production dealer separation, sponsored and bounded sessions, robust persistent jobs/indexer/reorg/failover/reconciliation, seven-browser crypto acceptance, operational deployment and monitoring.
+- Eligibility rules supplied by the licensing workstream and validated in the launch configuration.
+- Multi-asset conversion provider approval/integration. User changed the entry flow to connected wallet; direct USDC testing does not require Privy or a conversion provider. Prior quote adapter remains disabled and unapproved.
+- Separate crypto database schema is still unapplied. No public Supabase schema was changed. The local worker uses ignored private files and chain events, not production database infrastructure.
+
+Read `TESTING.md` for start/test/recovery commands. A merge alone must not turn this private pilot into public real-money play.

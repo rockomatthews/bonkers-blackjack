@@ -1,0 +1,10 @@
+{
+  "execution": "Read-only Solidity calls on LOCAL Base fork",
+  "rounds": 40,
+  "seats": 280,
+  "hands": 309,
+  "splits": 29,
+  "doubles": 143,
+  "hits": 115,
+  "exactPayoutMatches": true
+}

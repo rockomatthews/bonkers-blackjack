@@ -11,7 +11,13 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "contracts:test": "cd contracts && forge test",
-    "db:setup": "node --import tsx scripts/setup-db.ts"
+    "db:setup": "node --import tsx scripts/setup-db.ts",
+    "crypto:lab": "node --import tsx scripts/crypto/lab.ts",
+    "crypto:worker": "node --import tsx scripts/crypto/lab-worker.ts",
+    "crypto:verify-lab": "node --import tsx scripts/crypto/verify-lab.ts",
+    "crypto:verify-pilot": "node --import tsx scripts/crypto/verify-pilot.ts",
+    "crypto:artifact": "cd contracts && forge build --silent && cd .. && node --import tsx scripts/crypto/export-artifact.ts",
+    "crypto:pilot": "CRYPTO_LAB_ENABLED=1 next dev --hostname 127.0.0.1 --port 3107"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "5.3.0",

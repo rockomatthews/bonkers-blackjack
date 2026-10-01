@@ -44,3 +44,7 @@ Privy access tokens use ES256, issuer privy.io, application audience and exp/sub
 ## Completion standard
 
 Code scaffolding, local tests, dry quotes, an unaudited verifier or a private branch are not proof of launch readiness. The release report must distinguish implemented code, locally verified behavior, actual mainnet evidence, provider approvals, and external audit/licensing blockers. All enabled production routes must pass the complete deposit → wager → settle → withdraw flow against the exact deployed contracts.
+
+## October 1 implementation decision
+
+Owner clarified that users connect their own wallet. Direct native Base USDC is now the first executable funding path; embedded Privy accounts and cross-asset conversions are not prerequisites for this test. The owner supplied `0x8A0182c099A618583e9EF98716DAcF739b3BD944` and authorized testing without a maximum. No server signer or owner key was obtained. The locally gated owner-pilot UI prepares transactions for the owner to confirm; the unaudited candidate restricts Base wagers to that owner and 5 USDC. This is a separate private test exception to the public-launch gate, not production activation. See STATUS.md, TESTING.md and REVIEW.md for verified scope and remaining work.

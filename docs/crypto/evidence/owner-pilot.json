@@ -1,0 +1,8 @@
+{
+  "testedAt": "2026-10-01T15:29:08.263Z",
+  "execution": "LOCAL Anvil fork with chain ID 8453, not mainnet",
+  "wallet": "0x8A0182c099A618583e9EF98716DAcF739b3BD944",
+  "before": "910000000",
+  "after": "910000000",
+  "browserErrors": []
+}

@@ -1,0 +1,22 @@
+import {parseAbi} from 'viem';
+export const gameAbi=parseAbi([
+ 'function pilotOwner() view returns (address)',
+ 'function verifier() view returns (address)',
+ 'function vault() view returns (address)',
+ 'function operator() view returns (address)',
+ 'function offer(bytes32 id,bytes32 commitment)',
+ 'function join(bytes32 id,uint128 stake,bytes32 entropy)',
+ 'function start(bytes32 id)',
+ 'function observe(bytes32 id,bytes data)',
+ 'function act(bytes32 id,uint8 move,uint128 extra,bytes32 expectedObservation)',
+ 'function autoStand(bytes32 id)',
+ 'function settle(bytes32 id,bytes32 seed)',
+ 'function claimFailure(bytes32 id)',
+ 'function state(bytes32 id) view returns (uint8 phase,uint64 deadline,uint8 active,bytes32 entropy,address[] players,uint128[] stakes,uint128[] added,uint256 actionCount)',
+ 'event Offered(bytes32 indexed id,bytes32 commitment,uint64 deadline)',
+ 'event Joined(bytes32 indexed id,address indexed player,uint8 seat,uint128 stake,bytes32 entropy)',
+ 'event Started(bytes32 indexed id,bytes32 entropy)',
+ 'event Observed(bytes32 indexed id,bytes data,bool done,uint8 active,uint64 deadline)',
+ 'event Acted(bytes32 indexed id,uint8 seat,uint8 move,uint128 extra,bool automatic)',
+ 'event Finished(bytes32 indexed id,bytes32 seed,bool failure)',
+]);
