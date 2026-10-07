@@ -1,5 +1,10 @@
 import {parseAbi} from 'viem';
 export const gameAbi=parseAbi([
+ 'function authorizeSession(address key,uint128 cap,uint64 expires) payable',
+ 'function revokeSession(address key)',
+ 'function sessions(address key) view returns(address owner,uint128 remaining,uint64 expires)',
+ 'function joinFor(bytes32 id,address owner,uint128 stake,bytes32 entropy)',
+ 'function actFor(bytes32 id,address owner,uint8 move,uint128 extra,bytes32 expectedObservation)', 
  'function verifier() view returns (address)',
  'function vault() view returns (address)',
  'function operator() view returns (address)',
