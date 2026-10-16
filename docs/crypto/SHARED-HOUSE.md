@@ -23,7 +23,7 @@ New contracts enforce 75 USDC free collateral for Base deposits and opening, whi
 
 The minimum is collateral for ONE active initial 5-USDC hand, not funding for seven people. The vault reserves a maximum gross return of 16 × 5 = 80 USDC (including its failure recovery); the player contributes 5 and the house backs the remaining 75. Seven simultaneous initial hands therefore need at least 525 USDC house collateral before a buffer for losses. Wins paid to players reduce future capacity, and a 75-USDC house may need a top-up after the first player win.
 
-The live flow currently gives each wallet an independent assigned round. It does not implement seven players sharing one dealer hand, a seven-seat admission limit, a waiting list, or automatic table creation for an eighth player. New wagers fail closed when there is insufficient unreserved collateral. The seven-chair artwork must not be presented as proof of shared seating or queue behavior.
+The owner explicitly confirmed the intended model: each wallet gets its own table experience through independent assigned rounds, sharing only the house bankroll. Preserve this model; do not add shared seven-seat matchmaking or a seven-player admission cap. Venice reviewed the per-wallet mapping, assigned-player join guard, action ownership and withdrawal accounting against this requirement. The live flow gives each wallet an independent assigned round. It does not implement seven players sharing one dealer hand, a seven-seat admission limit, a waiting list, or automatic table creation for an eighth player. New wagers fail closed when there is insufficient unreserved collateral. The seven-chair artwork must not be presented as proof of shared seating or queue behavior.
 
 ## Wallet connection
 

@@ -54,6 +54,7 @@ export async function register(owner:Address,hash:Hex){
  await houseTransaction(s=>{if(s.deployment&&s.deployment.game.toLowerCase()!==game.toLowerCase())throw Error('A shared house table already exists');s.deployment={game,vault,block:String(receipt.blockNumber),transaction:hash};});return houseStatus();
 }
 async function send(c:Awaited<ReturnType<typeof checked>>,game:Address,functionName:'offerFor'|'start'|'observe'|'autoStand'|'settle'|'claimFailure',args:readonly unknown[]){const hash=await c.wallet.writeContract({address:game,abi:gameAbi,functionName,args} as Parameters<typeof c.wallet.writeContract>[0]);const receipt=await c.client.waitForTransactionReceipt({hash,timeout:25000});if(receipt.status!=='success')throw Error('Dealer transaction reverted');return hash;}
+// Product rule: each wallet gets its own round/dealer hand. Do not merge wallets into a seven-seat game.
 export async function offer(owner:Address){
  const status=await houseStatus();if(!status.depositsOpen||!status.deployment)throw Error(status.reason);const c=await checked();
  if(await c.client.readContract({address:status.deployment.vault,abi:vaultAbi,functionName:'available',args:[owner]})<5010000n)throw Error('Deposit at least 5.01 USDC before playing.');
