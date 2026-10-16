@@ -19,3 +19,6 @@
 .coin-options.sides img{width:45px;height:45px;border-radius:50%;border:2px solid #fff}.coin-options.sides button:first-child.selected{background:#b6223930;border-color:#ff6979;color:#fff}.coin-options.sides button:last-child.selected{background:#2369e830;border-color:#68a6ff;color:#fff}
 .toss-strip>span.head{background:#ca283c;border-color:#fff;color:#fff}.toss-strip>span.tail{background:#246bd9;border-color:#fff;color:#fff}
 @media(max-width:750px){.coin-stage .coin-3d{width:260px;margin:10px auto 20px}.casino-coin-preview{width:175px;height:175px;right:-9px;bottom:8px}.coin-card-face{width:125px;height:125px}}
+
+.casino-home-logo{display:block;width:120px;height:82px;flex-shrink:0}.casino-home-logo img{display:block;width:120px;height:120px;object-fit:contain;transform:translateY(-8px)}.casino-logo-art{height:auto;aspect-ratio:1;max-width:550px;display:flex;align-items:center;justify-content:center;border:0;background:none}.casino-logo-art:before,.casino-logo-art:after{display:none}.casino-logo-art>img{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 30px #0004)}
+@media(max-width:750px){.casino-home-logo{width:96px;height:64px}.casino-home-logo img{width:96px;height:96px;transform:translateY(-7px)}.casino-hero-art.casino-logo-art{height:auto;max-width:350px;margin-bottom:-40px}}
