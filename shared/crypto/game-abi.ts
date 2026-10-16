@@ -9,6 +9,8 @@ export const gameAbi=parseAbi([
  'function verifier() view returns (address)',
  'function vault() view returns (address)',
  'function operator() view returns (address)',
+ 'function offerFor(bytes32 id,bytes32 commitment,address player)',
+ 'function expectedPlayer(bytes32 id) view returns(address)',
  'function offer(bytes32 id,bytes32 commitment)',
  'function join(bytes32 id,uint128 stake,bytes32 entropy)',
  'function start(bytes32 id)',

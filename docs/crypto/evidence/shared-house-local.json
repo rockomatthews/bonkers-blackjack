@@ -1,0 +1,17 @@
+{
+  "network": "LOCAL Anvil chain 8453 mock USDC — NOT live Base",
+  "mainnetTransactions": 0,
+  "house": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "player": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "game": "0x8464135c8f25da09e49bc8782676a84730c318bc",
+  "vault": "0x02299a3DcaB0938d0544130D054Bcbfb32B588C3",
+  "baseChosenOverPhantom": true,
+  "depositsClosedAfterFunding": true,
+  "onlyHouseOpens": true,
+  "playerCannotRegister": true,
+  "playerWithdrawsWhilePaused": true,
+  "fee": "0.01 USDC",
+  "settlementHash": "0x9a1231a89ae9fdbd0a7c704b3d667b84fa4adc7970b71d7f982fa1867659e7ff",
+  "receiptVerified": true,
+  "browserErrors": []
+}

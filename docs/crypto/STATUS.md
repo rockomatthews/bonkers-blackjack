@@ -1,3 +1,7 @@
+## Shared house correction — October 16, 2026
+
+The same-wallet pilot has been replaced by one pinned house wallet, a shared vault, explicit Base extension selection, independent player deposits/withdrawals, and a separate authenticated automatic dealer. Deposits stay closed until the house explicitly opens them after funding. See [SHARED-HOUSE.md](SHARED-HOUSE.md) for setup, security boundaries, and verification. Earlier pilot evidence below is historical and does not represent this shared deployment or proof of live deposits.
+
 # Live wallet entrance — October 16, 2026
 
 The default main entrance now selects the wallet-backed Base-USDC first test. Whole room cards open the real wallet table, with separate deposits/house funding, native withdrawals, and a block-pinned house-fee ledger. The owner confirmed that the connected wallet should fund both sides of the first test. The simulated game is isolated at `/practice`; `BONKERS_MODE=practice` can select it explicitly.

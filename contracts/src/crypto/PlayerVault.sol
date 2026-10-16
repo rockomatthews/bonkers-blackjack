@@ -40,6 +40,7 @@ contract PlayerVault is EIP712, ReentrancyGuard {
     // Any caller may sponsor the gas. Funds are always pulled from and credited to the SAME owner.
     function depositFor(address owner,uint256 amount) external nonReentrant {
         require(!paused && owner!=address(0) && amount>0,"deposits closed");
+        require(block.chainid!=8453||house-reserved>=75e6,"house reserve unavailable");
         uint256 beforeBalance=token.balanceOf(address(this));
         token.safeTransferFrom(owner,address(this),amount);
         require(token.balanceOf(address(this))-beforeBalance==amount,"unsupported token");
@@ -69,7 +70,7 @@ contract PlayerVault is EIP712, ReentrancyGuard {
     function withdrawProfit(uint256 amount) external onlyTreasury nonReentrant {
         require(amount<=house-reserved,"reserved collateral");house-=amount;token.safeTransfer(treasury,amount);
     }
-    function setPaused(bool value) external onlyTreasury {paused=value;emit Paused(value);}
+    function setPaused(bool value) external onlyTreasury {require(value||block.chainid!=8453||house-reserved>=75e6,"fund house first");paused=value;emit Paused(value);}
     function lock(bytes32 id,address owner,uint128 stake) external onlyGame {
         require(!paused && exposures[id].player==address(0) && owner!=address(0),"invalid wager");
         require(stake>=1e6 && stake%1e6==0 && stake<=1_000_000e6,"invalid stake");

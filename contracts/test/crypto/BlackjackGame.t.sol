@@ -38,8 +38,8 @@ contract BlackjackGameTest {
   if((R.legalMoves(data)&16)==0){vm.expectRevert();vm.prank(alice);game.act(ID,4,5e6,keccak256(data));}
  }
  function testMainnetAcceptsOtherWalletsButProtectsHouse() public {
-  vm.chainId(8453);BlackjackGame pilot=new BlackjackGame(token,address(this),address(this));PlayerVault v=pilot.vault();v.setPaused(false);
-  token.mint(address(this),1100e6);token.approve(address(v),1100e6);v.fundHouse(1000e6);v.depositFor(address(this),100e6);
+  vm.chainId(8453);BlackjackGame pilot=new BlackjackGame(token,address(this),address(this));PlayerVault v=pilot.vault();
+  token.mint(address(this),1100e6);token.approve(address(v),1100e6);v.fundHouse(1000e6);v.setPaused(false);v.depositFor(address(this),100e6);
   pilot.offer(ID,keccak256(abi.encode(bytes32(uint256(1)))));
   token.mint(alice,10e6);vm.prank(alice);token.approve(address(v),10e6);v.depositFor(alice,10e6);
   vm.prank(alice);pilot.join(ID,5e6,bytes32(0));
@@ -48,6 +48,26 @@ contract BlackjackGameTest {
   pilot.join(ID,5e6,bytes32(0));require(v.playerLocked()==10e6);
  }
 
+ function testAssignedPlayerCannotBeFrontRun() public {
+  bytes32 round=keccak256("private player assignment");
+  game.offerFor(round,keccak256(abi.encode(bytes32(uint256(5)))),alice);
+  vm.expectRevert();game.join(round,5e6,bytes32(0));
+  vm.prank(alice);game.join(round,5e6,bytes32(0));
+  require(game.expectedPlayer(round)==alice);
+ }
+ function testBaseFundingNeverAutomaticallyOpensDeposits() public {
+  vm.chainId(8453);BlackjackGame sharedGame=new BlackjackGame(token,address(this),address(this));PlayerVault v=sharedGame.vault();
+  vm.expectRevert();v.setPaused(false);
+  token.mint(address(this),100e6);token.approve(address(v),100e6);v.fundHouse(100e6);
+  require(v.paused());
+  token.mint(alice,20e6);vm.prank(alice);token.approve(address(v),20e6);
+  vm.expectRevert();vm.prank(alice);v.depositFor(alice,20e6);
+  vm.expectRevert();vm.prank(alice);v.setPaused(false);
+  v.setPaused(false);vm.prank(alice);v.depositFor(alice,20e6);
+  v.withdrawProfit(26e6);token.mint(alice,1e6);vm.prank(alice);token.approve(address(v),1e6);
+  vm.expectRevert();vm.prank(alice);v.depositFor(alice,1e6);
+  v.setPaused(true);vm.prank(alice);v.withdraw(20e6,alice);require(token.balanceOf(alice)==21e6);
+ }
  function insuranceSeed(bool blackjack) internal view returns(bytes32){
   bytes32[] memory e=new bytes32[](1);e[0]=keccak256("player entropy");bytes32 entropy=keccak256(abi.encode(address(game),block.chainid,ID,e));
   for(uint256 n=0;n<2000;n++){bytes32 seed=bytes32(n);R.State memory s=R.initial(R.deck(seed,entropy),1);if(s.insurance&&(R.total(s.dealer,2)==21)==blackjack&&!s.seats[0].hands[0].done)return seed;}

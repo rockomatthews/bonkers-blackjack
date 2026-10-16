@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {POST} from '../app/api/house/[action]/route';
+import {houseStatus} from '../server/crypto/house';
+import {HOUSE_ADDRESS,walletLoginMessage} from '../shared/crypto/house';
+import {discoverWallets} from '../shared/crypto/wallets';
+import type {EIP1193Provider} from 'viem';
+test('house is pinned and unconfigured dealer fails closed',async()=>{const s=await houseStatus();assert.equal(s.house,HOUSE_ADDRESS);assert.equal(s.depositsOpen,false);assert.equal(s.dealerReady,false);});
+test('CSRF rejects a hostile origin even when Host matches it',async()=>{const response=await POST(new Request('https://attacker.example/api/house/challenge',{method:'POST',headers:{host:'attacker.example',origin:'https://attacker.example'},body:JSON.stringify({owner:HOUSE_ADDRESS})}),{params:Promise.resolve({action:'challenge'})});assert.equal(response.status,403);});
+test('wallet sign-in binds the site and address and disclaims transaction authority',()=>{const m=walletLoginMessage('https://bonkers-blackjack.vercel.app',HOUSE_ADDRESS,'nonce');assert.match(m,/bonkers-blackjack.vercel.app/);assert.ok(m.includes(HOUSE_ADDRESS.toLowerCase()));assert.match(m,/does not authorize transactions/);assert.match(m,/Base \(8453\)/);});
+test('EIP6963 discovers Base separately from the Phantom default provider',()=>{const w=new EventTarget() as EventTarget&{ethereum?:unknown};const base={request:async()=>null} as unknown as EIP1193Provider,phantom={isPhantom:true,request:async()=>null};w.ethereum=phantom;const original=Object.getOwnPropertyDescriptor(globalThis,'window');Object.defineProperty(globalThis,'window',{value:w,configurable:true});let found:ReturnType<typeof collect>=[];function collect(){return [] as {name:string;base:boolean;provider:EIP1193Provider}[];}try{w.addEventListener('eip6963:requestProvider',()=>w.dispatchEvent(new CustomEvent('eip6963:announceProvider',{detail:{info:{uuid:'base',rdns:'com.coinbase.wallet',name:'Coinbase Wallet'},provider:base}})));const stop=discoverWallets(list=>{found=list;});assert.equal(found[0].provider,base);assert.equal(found[0].base,true);assert.ok(found.some(o=>o.name==='Phantom'));stop();}finally{if(original)Object.defineProperty(globalThis,'window',original);else Reflect.deleteProperty(globalThis,'window');}});

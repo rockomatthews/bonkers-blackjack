@@ -37,6 +37,7 @@ contract BlackjackGame {
         Replay.Action[] actions; bytes32[] observations;
     }
     mapping(bytes32=>Round) private rounds;
+    mapping(bytes32=>address) public expectedPlayer;
     event Offered(bytes32 indexed id,bytes32 commitment,uint64 deadline);
     event Joined(bytes32 indexed id,address indexed player,uint8 seat,uint128 stake,bytes32 entropy);
     event Started(bytes32 indexed id,bytes32 entropy);
@@ -49,12 +50,18 @@ contract BlackjackGame {
     function offer(bytes32 id,bytes32 commitment) external onlyOperator {
         Round storage r=rounds[id];require(r.phase==0&&commitment!=bytes32(0),"used round");r.commitment=commitment;r.phase=1;r.deadline=uint64(block.timestamp+OPERATOR_SECONDS);emit Offered(id,commitment,r.deadline);
     }
+    function offerFor(bytes32 id,bytes32 commitment,address player) external onlyOperator {
+        require(player!=address(0),"player");
+        Round storage r=rounds[id];require(r.phase==0&&commitment!=bytes32(0),"used round");
+        expectedPlayer[id]=player;r.commitment=commitment;r.phase=1;r.deadline=uint64(block.timestamp+OPERATOR_SECONDS);emit Offered(id,commitment,r.deadline);
+    }
     function join(bytes32 id,uint128 stake,bytes32 entropy) external {_join(id,msg.sender,stake,entropy);}
     function joinFor(bytes32 id,address owner,uint128 stake,bytes32 entropy) external {
         uint128 fee=uint128(uint256(stake)*25/10_000/10_000*10_000);_authorize(owner,stake+fee);_join(id,owner,stake,entropy);
     }
     function _join(bytes32 id,address owner,uint128 stake,bytes32 entropy) private {
         require(block.chainid!=8453||stake<=5e6,"pilot max 5 USDC");
+        require(expectedPlayer[id]==address(0)||expectedPlayer[id]==owner,"assigned player only");
         Round storage r=rounds[id];require(r.phase==1&&block.timestamp<r.deadline&&r.players.length<7,"betting closed");
         for(uint256 i=0;i<r.players.length;i++)require(r.players[i]!=owner,"already seated");
         vault.lock(exposure(id,r.players.length),owner,stake);
