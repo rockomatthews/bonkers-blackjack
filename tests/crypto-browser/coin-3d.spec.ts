@@ -1,0 +1,13 @@
+import {test,expect,type Locator} from '@playwright/test';
+import sharp from 'sharp';
+async function colors(coin:Locator){const {data,info}=await sharp(await coin.screenshot()).removeAlpha().raw().toBuffer({resolveWithObject:true});let red=0,blue=0,white=0;for(let i=0;i<data.length;i+=info.channels){const[r,g,b]=[data[i],data[i+1],data[i+2]];if(r>100&&r>b*1.6&&r>g*1.4)red++;if(b>100&&b>r*1.5&&b>g*1.15)blue++;if(r>220&&g>220&&b>220)white++;}return{red,blue,white};}
+test('Three.js renders both supplied faces with a visible white edge, including on mobile',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/toin-coss');const coin=page.locator('.coin-stage .coin-3d');await expect(coin).toHaveAttribute('data-renderer','threejs');await expect(coin.locator('.coin-3d-canvas')).toHaveAttribute('data-settled','heads');const heads=await colors(coin);expect(heads.red).toBeGreaterThan(3000);expect(heads.white).toBeGreaterThan(100);await page.screenshot({path:'docs/screenshots/coin-3d-heads.png',fullPage:true});
+ await page.getByRole('button',{name:'Tails',exact:true}).click();await expect(coin.locator('.coin-3d-canvas')).toHaveAttribute('data-settled','tails');const tails=await colors(coin);expect(tails.blue).toBeGreaterThan(3000);expect(tails.white).toBeGreaterThan(100);expect(tails.red).toBeLessThan(heads.red/4);await page.screenshot({path:'docs/screenshots/coin-3d-tails.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await expect(coin).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);await page.screenshot({path:'docs/screenshots/coin-3d-mobile.png',fullPage:true});
+ await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('button',{name:'Heads',exact:true}).click();await expect(coin.locator('.coin-3d-canvas')).toHaveAttribute('data-settled','heads');expect((await colors(coin)).red).toBeGreaterThan(3000);expect(errors).toEqual([]);
+});
+test('coin artwork remains available when WebGL is unavailable',async({page})=>{
+ await page.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(this:HTMLCanvasElement,type:string,...args:unknown[]){if(type==='webgl'||type==='webgl2'||type==='experimental-webgl')return null;return original.call(this,type,...args as [never]);} as typeof original;});
+ await page.goto('/toin-coss');const coin=page.locator('.coin-stage .coin-3d');await expect(coin.locator('img')).toBeVisible();await page.getByRole('button',{name:'Tails',exact:true}).click();await expect(coin.locator('img')).toHaveAttribute('src','/coins/tails-blue.png');await expect(coin).toHaveAttribute('data-renderer','image');
+});
