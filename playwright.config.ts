@@ -17,6 +17,7 @@ export default defineConfig({
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,
     env: {
+      BONKERS_MODE: "practice",
       DATA_DIR: ".data/e2e-" + Date.now(),
       BET_MS: "120000",
       ACTION_MS: "60000",

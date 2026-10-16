@@ -10,9 +10,6 @@ import {
 import Image from "next/image";
 import { roomArt } from "../shared/rooms";
 import {
-  ArrowUpRight,
-  ArrowRight,
-  ArrowLeft,
   Check,
   Copy,
   X,
@@ -38,7 +35,6 @@ import {
   Undo2,
   Trash2,
   UserRound,
-  ChevronRight,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { Avatar, ProfilePage } from "./Profile";
@@ -556,7 +552,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
           </a>
           <a href="#how-to-play">How to play</a>
           <a href="#fairness">
-            Fair play <ArrowUpRight size={13} />
+            Fair play
           </a>
           {account && <a href="#account">Your account</a>}
         </nav>
@@ -585,7 +581,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
               className="button primary compact"
               onClick={() => setModal("login")}
             >
-              Join the club <ArrowUpRight size={16} />
+              Join the club
             </button>
           )}
           <button
@@ -646,10 +642,10 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                     className="button primary"
                     onClick={() => (account ? go("lobby") : setModal("login"))}
                   >
-                    Take your seat <ArrowUpRight size={20} />
+                    Take your seat
                   </button>
                   <a className="text-link" href="#how-to-play">
-                    New around here? <ArrowRight size={17} />
+                    New around here?
                   </a>
                 </div>
                 <div className="hero-notes">
@@ -745,7 +741,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                     },
                   ]
               ).map((t, i) => (
-                <article className={"table-tile " + t.theme} key={t.id}>
+                <a className={"table-tile " + t.theme} key={t.id} href={"#table/"+t.id} aria-label={"Open "+t.name} onClick={e=>{e.preventDefault();openTable(t.id);}}>
                   <div className="tile-art orbital-preview">
                     <Image src={roomArt(t.id).image} alt={roomArt(t.id).description} fill sizes="(max-width: 800px) 100vw, 420px" />
                     <span className="table-tag">
@@ -776,16 +772,9 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                         {money(t.min)}–{money(t.max)}
                         <small>PLAY-MONEY LIMITS</small>
                       </span>
-                      <button
-                        className="round-button"
-                        aria-label={"Open " + t.name}
-                        onClick={() => openTable(t.id)}
-                      >
-                        <ArrowUpRight />
-                      </button>
                     </div>
                   </div>
-                </article>
+                </a>
               ))}
             </div>
             <div className="lobby-foot">
@@ -1092,7 +1081,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                         className="button primary"
                         onClick={() => setModal("login")}
                       >
-                        Join to play <ArrowRight size={18} />
+                        Join to play
                       </button>
                     ) : me < 0 ? (
                       <p>
@@ -1230,7 +1219,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                         </div>
                         <button className="button primary" disabled={busy || pendingChips > 0 || bet < table.min || bet > table.max}
                           onClick={() => void command("deal")}>
-                          Deal <ArrowRight size={16} />
+                          Deal
                         </button>
                         <div className="chip-edit-actions">
                           <button className="text-link" aria-label="Undo last chip" disabled={busy || pendingChips > 0 || !stagedChips.length} onClick={() => stageChips(stagedChips.slice(0,-1))}><Undo2 size={14} /> Undo</button>
@@ -1309,7 +1298,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                       className="button secondary"
                       onClick={() => go("how-to-play")}
                     >
-                      Explore the table rules <ArrowRight size={16} />
+                      Explore the table rules
                     </button>
                   </div>
                 ) : (
@@ -1396,7 +1385,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
               </ul>
             </div>
             <button className="button primary" onClick={() => go("lobby")}>
-              I’m ready. Show me the tables. <ArrowRight size={18} />
+              I’m ready. Show me the tables.
             </button>
           </section>
         )}
@@ -1489,7 +1478,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                   className="text-link"
                   onClick={() => void verify(receipts[0])}
                 >
-                  Verify my latest round <ArrowRight size={16} />
+                  Verify my latest round
                 </button>
               )}
             </div>
@@ -1562,7 +1551,6 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                             {t.status}
                           </small>
                         </span>
-                        <ChevronRight size={16} />
                       </button>
                     ))
                   ) : (
@@ -1647,7 +1635,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
             </h1>
             {account ? (
               <>
-                <a className="account-profile-link panel" href="#profile"><div className="account-avatar"><Avatar profile={account}/></div><span><strong>{account.name}</strong><small>{account.nameChanged ? "View your profile · edit your image" : "Choose your one-time username · edit your image"}</small></span><ArrowRight /></a>
+                <a className="account-profile-link panel" href="#profile"><div className="account-avatar"><Avatar profile={account}/></div><span><strong>{account.name}</strong><small>{account.nameChanged ? "View your profile · edit your image" : "Choose your one-time username · edit your image"}</small></span></a>
                 <div className="account-grid">
                   <div className="panel">
                     <Wallet />
@@ -1775,7 +1763,6 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
               disabled={busy || !consent || storageReady !== true}
             >
               {busy ? "Getting your seat ready…" : "Let’s play"}{" "}
-              <ArrowRight size={18} />
             </button>
           </form>
           <div className="modal-note">
@@ -1812,7 +1799,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
               />
             </label>
             <button className="button primary full" disabled={busy}>
-              Create private table <ArrowRight size={18} />
+              Create private table
             </button>
           </form>
         </Dialog>
@@ -1851,7 +1838,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
       )}
       {modal === "cashier" && (
         <Dialog title="The cashier." onClose={closeModal}>
-          {cryptoTestingEnabled && <p>Real USDC testing uses a separate wallet balance. <a className="text-link" href="/crypto-pilot">Connect a wallet, test, or withdraw your funds →</a></p>}
+          {cryptoTestingEnabled && <p>Real USDC testing uses a separate wallet balance. <a className="text-link" href="/crypto-pilot">Connect a wallet, test, or withdraw your funds</a></p>}
           <div className="cashier-balance">
             <span>AVAILABLE PLAY MONEY</span>
             <strong>
@@ -1866,8 +1853,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
               <button
                 className="text-link"
                 onClick={() => setSelectedTransfer(null)}
-              >
-                <ArrowLeft size={15} /> New transfer
+              > New transfer
               </button>
               <div className="transfer-detail">
                 <span className="tag">
@@ -1970,7 +1956,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                       void command("simulate", { id: activeTransfer.id })
                     }
                   >
-                    Simulate incoming deposit <ArrowRight size={18} />
+                    Simulate incoming deposit
                   </button>
                 )}
                 {!["completed", "failed", "expired"].includes(
@@ -2107,7 +2093,6 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                   {transferTab === "deposit"
                     ? "Create demo deposit"
                     : "Simulate withdrawal"}{" "}
-                  <ArrowRight size={18} />
                 </button>
               </form>
             </>

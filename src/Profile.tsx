@@ -64,7 +64,7 @@ export function ProfilePage({account, profileId, busy, api, command, onJoin}:Pro
   const profile=own?account:visitor;
   if(!profile)return <section className="section reading"><h1>{own?'Make yourself at home.':loadError?'Profile unavailable.':'Finding your table mate…'}</h1><p>{loadError || 'Your personality deserves a seat at the table.'}</p>{own&&<button className="button primary" onClick={onJoin}>Join the club</button>}</section>;
   return <section className="section profile-page">
-    <a className="text-link" href="#lobby">← Back to the tables</a>
+    <a className="text-link" href="#lobby">Back to the tables</a>
     <div className="profile-banner"><span>PLAYER DOSSIER / BONKERS BLACKJACK</span><b>GOOD CARDS.<br/>QUESTIONABLE COMPANY.</b></div>
     <div className="profile-identity">
       <div className="profile-portrait"><Avatar profile={profile}/></div>
@@ -90,6 +90,6 @@ export function ProfilePage({account, profileId, busy, api, command, onJoin}:Pro
       </div>
     </div>}
     {feedback&&<p className="profile-feedback" role="status">{feedback}</p>}
-    <div className="profile-links"><a href="#lobby" className="button secondary">Find a table</a>{own&&<a href="#account" className="text-link">Account & play-money balance →</a>}<button className="text-link" onClick={async()=>{const url=new URL(location.href);url.hash='profile/'+profile.id;try{await navigator.clipboard.writeText(url.toString());setFeedback('Profile link copied.');}catch{setFeedback(url.toString());}}}>Copy profile link</button></div>
+    <div className="profile-links"><a href="#lobby" className="button secondary">Find a table</a>{own&&<a href="#account" className="text-link">Account & play-money balance</a>}<button className="text-link" onClick={async()=>{const url=new URL(location.href);url.hash='profile/'+profile.id;try{await navigator.clipboard.writeText(url.toString());setFeedback('Profile link copied.');}catch{setFeedback(url.toString());}}}>Copy profile link</button></div>
   </section>;
 }

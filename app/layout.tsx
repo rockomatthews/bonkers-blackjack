@@ -48,12 +48,12 @@ import "../src/styles.css";
 export const metadata: Metadata = {
   title: "Bonkers Blackjack — Cards on the table. Rules out the window? Never.",
   description:
-    "Your crew. Your table. A little Bonkers. Social blackjack with verifiable rounds. Play-money preview.",
+    "Your crew. Your table. A little Bonkers. Social blackjack with native USDC on Base and verifiable rounds.",
   icons: { icon: "/bonkers-blackjack-logo.png" },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${bodyFont.variable} ${headingFont.variable}`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${bodyFont.variable} ${headingFont.variable}`}>
       <body>{children}</body>
     </html>
   );

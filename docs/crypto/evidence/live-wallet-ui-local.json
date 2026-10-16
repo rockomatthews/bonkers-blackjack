@@ -1,0 +1,16 @@
+{
+  "network": "LOCAL Anvil with chain ID 8453 and mock USDC at the native token address; NOT live Base",
+  "mainnetTransactions": 0,
+  "game": "0x8464135c8f25da09e49bc8782676a84730c318bc",
+  "vault": "0x02299a3DcaB0938d0544130D054Bcbfb32B588C3",
+  "deposit": "42.51 USDC",
+  "houseFunding": "75 USDC",
+  "fee": "0.01 USDC",
+  "payout": "0",
+  "houseBeforeWithdrawal": "80010000",
+  "playerBeforeWithdrawal": "37500000",
+  "settlementHash": "0xfd07dccf4ff7bbf6f18918c0aa2838035a8a327b134bfa12b8b8ccb64e09d2d5",
+  "receiptVerified": true,
+  "allFundsWithdrawn": true,
+  "browserErrors": []
+}

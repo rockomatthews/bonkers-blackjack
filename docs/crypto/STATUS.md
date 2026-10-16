@@ -1,3 +1,11 @@
+# Live wallet entrance — October 16, 2026
+
+The default main entrance now selects the wallet-backed Base-USDC first test. Whole room cards open the real wallet table, with separate deposits/house funding, native withdrawals, and a block-pinned house-fee ledger. The owner confirmed that the connected wallet should fund both sides of the first test. The simulated game is isolated at `/practice`; `BONKERS_MODE=practice` can select it explicitly.
+
+See [LIVE-WALLET-ENTRANCE.md](LIVE-WALLET-ENTRANCE.md) for the exact flow and verification limits. Full UI deposit/settle/fee/withdraw verification used a local mock-token chain; no actual Base deposit is claimed until the owner signs and a live receipt is read back.
+
+---
+
 # Rules v2 checkpoint — October 15, 2026
 
 Rooms, branding, and complete browser rules were pushed to `main` as `df41fc3`. The current contract update adds insurance, late surrender, versioned observations/replay, exact half-wager stake accounting, wallet controls, and a rebuilt deployment artifact. Existing immutable deployments keep their original rules; this is not an in-place contract upgrade.
