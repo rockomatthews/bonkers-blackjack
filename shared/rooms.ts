@@ -6,3 +6,6 @@ export const ROOMS = {
 export function roomArt(id: string) { return ROOMS[id as keyof typeof ROOMS] ?? ROOMS["bonkers-room"]; }
 
 export type RoomId=keyof typeof ROOMS;
+
+/** Only the initial 5-USDC room is available during the first funding test. */
+export function liveRoomOpen(id:string){return id==="bonkers-room";}

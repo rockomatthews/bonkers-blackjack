@@ -4,7 +4,7 @@ This supersedes the same-wallet pilot described in LIVE-WALLET-ENTRANCE.md.
 
 ## Ownership and funding
 
-The house administrator is pinned to `0xe8e3587b47253051Aed6e02430cdE5B1c1664B6B`, as supplied by the owner. Every room uses the same registered game/vault. A player never deploys a game or funds the house. Player USDC is credited to that player's address. Withdrawals are signed by the player and return funds to that wallet; pausing deposits never prevents available-balance withdrawals.
+The house administrator is pinned to `0xe8e3587b47253051Aed6e02430cdE5B1c1664B6B`, as supplied by the owner. Only The Bonkers Room is open. Midnight Lounge and Carnival Club are non-interactive Coming soon cards; direct URLs show a Coming soon page without a game or cashier. The first room uses the registered shared game/vault. A player never deploys a game or funds the house. Player USDC is credited to that player's address. Withdrawals are signed by the player and return funds to that wallet; pausing deposits never prevents available-balance withdrawals.
 
 The owner explicitly approved a separate dealer credential. Its public address is `0x2FbDB1d95F5926F4B3607bF395bf7c18F5369eA6`. It is stored in macOS Keychain (`ai.bonkers-blackjack.dealer.production`) and as an encrypted Vercel production secret (`BONKERS_DEALER_KEY`). No key is committed, printed, passed as a command argument, or put in browser code. It has no treasury/player withdrawal permission. It can spend its funded ETH gas and operate the game; a compromised dealer remains a game-integrity risk. Keep its gas balance limited. Rotation requires completing/recovering open rounds and a new immutable game deployment; do not silently replace the key while funds/round secrets depend on it.
 
@@ -18,6 +18,12 @@ House setup at `/house`:
 6. A different wallet can now connect, approve a chosen amount, deposit, play a 5-USDC initial wager, and withdraw its own funds. The house can close deposits at any time. Withdrawing house funds closes deposits first and cannot take player balances or collateral reserved for active hands.
 
 New contracts enforce 75 USDC free collateral for Base deposits and opening, while enforcing the same original reserved-collateral accounting. A capacity shortfall closes new deposits/play in the UI. Existing immutable deployments are not modified by publishing this code. Do not send USDC directly to the house address/vault expecting player credit: the deposit button calls `depositFor` after exact approval.
+
+## Capacity and the 75-USDC minimum
+
+The minimum is collateral for ONE active initial 5-USDC hand, not funding for seven people. The vault reserves a maximum gross return of 16 × 5 = 80 USDC (including its failure recovery); the player contributes 5 and the house backs the remaining 75. Seven simultaneous initial hands therefore need at least 525 USDC house collateral before a buffer for losses. Wins paid to players reduce future capacity, and a 75-USDC house may need a top-up after the first player win.
+
+The live flow currently gives each wallet an independent assigned round. It does not implement seven players sharing one dealer hand, a seven-seat admission limit, a waiting list, or automatic table creation for an eighth player. New wagers fail closed when there is insufficient unreserved collateral. The seven-chair artwork must not be presented as proof of shared seating or queue behavior.
 
 ## Wallet connection
 
