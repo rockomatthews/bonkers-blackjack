@@ -134,7 +134,7 @@ test("dealer natural immediately settles all seats", () => {
       [{ id: "p", name: "p", bet: 1000, entropy: "x" }],
       String(i),
     );
-    if (total(r.dealer).value === 21 && r.dealer.length === 2) {
+    if (total(r.dealer).value === 21 && r.dealer.length === 2 && !r.insurancePending) {
       assert.equal(r.phase, "settled");
       found = true;
       break;
@@ -157,7 +157,7 @@ test("10,000 deterministic hands conserve integer payouts and finish within deck
     while (r.current) {
       const p = r.players[r.current[0]],
         h = p.hands[r.current[1]];
-      act(r, p.id, total(h.cards).value < 16 ? "hit" : "stand", 100000);
+      act(r, p.id, r.insurancePending ? "decline-insurance" : total(h.cards).value < 16 ? "hit" : "stand", 100000);
     }
     assert.equal(r.phase, "settled");
     assert.ok(r.cursor <= 312);
@@ -166,4 +166,63 @@ test("10,000 deterministic hands conserve integer payouts and finish within deck
       assert.ok(p.payout >= 0 && p.payout <= p.committed * 2.5);
     }
   }
+});
+
+test("insurance precedes the peek, hides the hole card, and pays 2:1 plus stake", () => {
+  const r = fixture([9, 8], [0, 12]);
+  r.insurancePending = true;
+  assert.deepEqual(allowed(r,"p",500), ["insurance","decline-insurance","stand"]);
+  assert.throws(() => act(r,"p","hit",10000));
+  assert.equal(act(r,"p","insurance",500),500);
+  assert.equal(r.phase,"settled");
+  assert.equal(r.players[0].committed,1500);
+  assert.equal(r.players[0].payout,1500);
+});
+test("insurance loses against a non-natural dealer; cannot buy twice or without funds", () => {
+  const r=fixture([9,8],[0,5]); r.insurancePending=true;
+  assert.ok(!allowed(r,"p",499).includes("insurance"));
+  assert.throws(()=>act(r,"p","insurance",499));
+  assert.equal(act(r,"p","insurance",500),500);
+  assert.equal(r.phase,"playing");
+  assert.throws(()=>act(r,"p","insurance",500));
+  act(r,"p","stand",0);
+  assert.equal(r.players[0].payout,2000);
+  assert.equal(r.players[0].committed,1500);
+});
+test("every seat, including a natural, gets insurance before peek; decline is free", () => {
+  const r=fixture([0,9],[0,12]); r.players[0].hands[0].status="natural";
+  r.players.push({id:"q",name:"Second",hands:[hand([9,8])],committed:1000,payout:0});
+  r.insurancePending=true;
+  act(r,"p","insurance",500);
+  assert.equal(r.phase,"playing");
+  assert.deepEqual(r.current,[1,0]);
+  assert.throws(()=>act(r,"p","insurance",500));
+  assert.equal(act(r,"q","decline-insurance",0),0);
+  assert.equal(r.players[0].payout-r.players[0].committed,1000);
+  assert.equal(r.players[1].payout,0);
+});
+test("insured natural yields even money when dealer has no blackjack too",()=>{
+  const r=fixture([0,9],[0,5]); r.players[0].hands[0].status="natural"; r.insurancePending=true;
+  act(r,"p","insurance",500);
+  assert.equal(r.phase,"settled");
+  assert.equal(r.players[0].payout-r.players[0].committed,1000);
+});
+test("late surrender returns exactly half, cannot follow a hit or split",()=>{
+  const r=fixture([9,5]);
+  assert.ok(allowed(r,"p",0).includes("surrender"));
+  act(r,"p","surrender",0);
+  assert.equal(r.players[0].payout,500);
+  assert.equal(r.players[0].hands[0].result,"Surrender");
+  const hit=fixture([2,3]); act(hit,"p","hit",0);
+  assert.ok(!allowed(hit,"p",1000).includes("surrender"));
+  const split=fixture([7,20]); act(split,"p","split",1000);
+  assert.ok(!allowed(split,"p",1000).includes("surrender"));
+});
+test("double after a hit is rejected; a doubled bust loses the doubled stake",()=>{
+  const r=fixture([9,5],[9,6],[9]);
+  act(r,"p","double",1000);
+  assert.equal(r.players[0].payout,0);
+  assert.equal(r.players[0].committed,2000);
+  const h=fixture([1,2]);act(h,"p","hit",1000);
+  assert.ok(!allowed(h,"p",1000).includes("double"));
 });

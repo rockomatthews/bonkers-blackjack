@@ -1,3 +1,4 @@
+import * as legacy from "../shared/legacy-game";
 import { randomBytes, randomUUID, randomInt } from "node:crypto";
 import {
   act,
@@ -76,8 +77,8 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
       ),
       newTable(
         "high-society",
-        "High Society",
-        "A little more on the line.",
+        "Carnival Club",
+        "A whole room of delightful chaos.",
         "gold",
         10000,
         50000,
@@ -85,6 +86,7 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     ])
       data.tables[t.id] = t;
   }
+  if (data.tables["high-society"]) { data.tables["high-society"].name = "Carnival Club"; data.tables["high-society"].subtitle = "A whole room of delightful chaos."; }
   const fail = (message: string): never => {
     throw Error(message);
   };
@@ -141,14 +143,14 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
       round: t.round ? publicRound(t.round) : null,
       allowed:
         a && t.round
-          ? allowed(
-              t.round,
+          ? (t.round.rules === legacy.RULES ? legacy.allowed : allowed)(
+              t.round as legacy.Round,
               a.id,
               Math.min(
                 a.balance,
                 Math.max(0, a.session.limit - a.session.spent),
               ),
-            )
+            ).filter(move => a.session.expiresAt > Date.now() || move === "stand" || move === "decline-insurance")
           : [],
       spectators: Object.entries(data.presence).filter(
         ([id, p]) =>
@@ -254,10 +256,11 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     const extra =
       kind === "double" || kind === "split"
         ? round.players[current![0]].hands[current![1]].bet
-        : 0;
+        : kind === "insurance" ? round.players[current![0]].hands[0].bet / 2 : 0;
     // Standing remains available after session expiry so funds cannot be stranded.
-    if (kind !== "stand") authorize(a, extra);
-    act(round, a.id, kind, a.balance);
+    if (kind !== "stand" && kind !== "decline-insurance") authorize(a, extra);
+    if (round.rules === legacy.RULES) legacy.act(round as legacy.Round, a.id, kind as legacy.Move, a.balance);
+    else act(round, a.id, kind, a.balance);
     a.balance -= extra;
     a.session.spent += extra;
     data.house += extra;
@@ -482,7 +485,7 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
     } else if (kind === "next") {
       if (!t.seats.includes(a.id)) fail("Take a seat first");
       reset(t);
-    } else if (["hit", "stand", "double", "split"].includes(kind)) {
+    } else if (["hit", "stand", "double", "split", "insurance", "decline-insurance", "surrender"].includes(kind)) {
       if (p.roundId !== t.round?.id)
         fail("This action belongs to a different round");
       move(t, a, kind as Move, e);
@@ -521,7 +524,7 @@ export function service(data: Store, saveAvatar?: SaveAvatar) {
       }
       if (t.round?.phase === "playing" && t.deadline && now >= t.deadline) {
         const id = t.round.players[t.round.current![0]].id;
-        move(t, data.accounts[id], "stand");
+        move(t, data.accounts[id], t.round.insurancePending ? "decline-insurance" : "stand");
         t.sequence++;
       }
     }

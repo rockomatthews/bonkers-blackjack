@@ -1,3 +1,4 @@
+import * as legacy from "./legacy-game";
 import { chipTotal, validChips } from "./chips";
 import { FEE_POLICY, LEGACY_FEE_POLICY, roundFee } from "./fees";
 import {
@@ -89,7 +90,7 @@ export async function verifyReceipt(
   receipt: Receipt,
 ): Promise<{ valid: boolean; detail: string }> {
   try {
-    if (![1, 2, 3].includes(receipt.version) || receipt.rules !== RULES)
+    if (![1, 2, 3].includes(receipt.version) || ![RULES, legacy.RULES].includes(receipt.rules))
       throw Error("Unsupported receipt or rules version");
     const { hash: claimed, ...body } = receipt;
     if (hash(canonical(body)) !== claimed) throw Error("Receipt hash mismatch");
@@ -137,10 +138,11 @@ export async function verifyReceipt(
       )
         throw Error("Wager mismatch");
     }
-    const round = startRound(receipt.roundId, receipt.wagers, receipt.seed);
+    const oldRules = receipt.rules === legacy.RULES;
+    const round = oldRules ? legacy.startRound(receipt.roundId, receipt.wagers, receipt.seed) : startRound(receipt.roundId, receipt.wagers, receipt.seed);
     for (const a of receipt.actions) {
       if (a.automatic) {
-        if (a.move !== "stand") throw Error("Invalid timeout action");
+        if (a.move !== "stand" && !(a.move === "decline-insurance" && !oldRules)) throw Error("Invalid timeout action");
       } else {
         if (!a.envelope) throw Error("Missing signature");
         await check(a.actor, a.envelope);
@@ -150,7 +152,8 @@ export async function verifyReceipt(
         )
           throw Error("Action mismatch");
       }
-      act(round, a.actor, a.move, Number.MAX_SAFE_INTEGER);
+      if (oldRules) legacy.act(round as legacy.Round, a.actor, a.move as legacy.Move, Number.MAX_SAFE_INTEGER);
+      else act(round as Round, a.actor, a.move, Number.MAX_SAFE_INTEGER);
     }
     if (
       round.phase !== "settled" ||

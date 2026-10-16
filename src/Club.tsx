@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import Image from "next/image";
+import { roomArt } from "../shared/rooms";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -58,8 +59,8 @@ const Logo = ({ hero = false }: { hero?: boolean }) => (
   <Image
     src="/bonkers-blackjack-logo.png"
     alt="Bonkers Blackjack"
-    width={1753}
-    height={1753}
+    width={1254}
+    height={1254}
     loading="eager"
     className={hero ? "hero-logo" : "brand-logo"}
     sizes={hero ? "(max-width: 800px) 80vw, 540px" : "70px"}
@@ -489,6 +490,15 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
   const myTurn =
     !!table?.round?.current &&
     table.round.players[table.round.current[0]].id === account?.id;
+  const activeHand = myTurn && table?.round?.current ? ownRound?.hands[table.round.current[1]] : undefined;
+  const doubleReason = !myTurn ? "Wait for your turn."
+    : table?.round?.insurancePending ? "Choose insurance first."
+    : account && account.session.expiresAt <= now ? "Renew your play session."
+    : activeHand?.cards.length !== 2 ? "Double is available only on the first two cards."
+    : activeHand?.splitAces ? "Split aces receive one card only."
+    : account && activeHand && account.balance < activeHand.bet ? "Your available balance must cover one more matching wager."
+    : account && activeHand && account.session.limit - account.session.spent < activeHand.bet ? "Increase your session allowance to cover one more matching wager."
+    : "Double takes exactly one card and doubles this hand’s wager.";
   const remaining = table?.deadline
     ? Math.max(0, Math.ceil((table.deadline - now) / 1000))
     : 0;
@@ -726,8 +736,8 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                     },
                     {
                       id: "high-society",
-                      name: "High Society",
-                      subtitle: "A little more on the line.",
+                      name: "Carnival Club",
+                      subtitle: "A whole room of delightful chaos.",
                       theme: "gold",
                       min: 10000,
                       max: 50000,
@@ -736,10 +746,10 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                   ]
               ).map((t, i) => (
                 <article className={"table-tile " + t.theme} key={t.id}>
-                  <div className={"tile-art " + (t.id === "bonkers-room" ? "orbital-preview" : "")}>
-                    {t.id === "bonkers-room" && <Image src="/pokerRoom.png" alt="The Bonkers Room overlooking Earth and a spiral galaxy" fill sizes="(max-width: 800px) 100vw, 420px" />}
+                  <div className="tile-art orbital-preview">
+                    <Image src={roomArt(t.id).image} alt={roomArt(t.id).description} fill sizes="(max-width: 800px) 100vw, 420px" />
                     <span className="table-tag">
-                      {["ROOM 01 · ORBITAL", "AFTER HOURS", "RAISE THE STANDARD"][i]}
+                      {roomArt(t.id).label}
                     </span>
                     <div className="mini-felt">
                       <span>BONKERS</span>
@@ -866,9 +876,9 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
             </div>
             {table ? (
               <>
-                <div className="room-viewport" aria-label="Blackjack room">
-                <div className={"game-surface " + table.theme + ((table.id === "bonkers-room" || table.private) ? " orbital-room" : "")}>
-                  {(table.id === "bonkers-room" || table.private) && <Image src="/pokerRoom.png" alt="Bonkers Blackjack orbital lounge above Earth, with seven seats around the table" fill sizes="(max-width: 1000px) 1000px, 1440px" loading="eager" className="room-backdrop" />}
+                <div className="room-viewport" aria-label="Blackjack room" style={{backgroundImage: `url(${roomArt(table.id).image})`}}>
+                <div data-room={table.id} className={"game-surface " + table.theme + " orbital-room"}>
+                  <Image key={table.id} src={roomArt(table.id).image} alt={roomArt(table.id).description} fill sizes="100vw" loading="eager" className="room-backdrop" />
                   <div className="felt-lines" />
                   <div className="dealer-zone">
                     <div className="dealer-badge">
@@ -1018,7 +1028,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                               </strong>
                               <small>
                                 {pr
-                                  ? money(pr.committed)
+                                  ? money(pr.committed) + (pr.insurance ? " · insured" : "")
                                   : s.bet
                                     ? money(s.bet)
                                     : s.stagedBet ? money(s.stagedBet) + " staged" : "Add chips to play"}
@@ -1076,6 +1086,7 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                     </button>
                   </div>
                   <div className="play-actions">
+                    {account && account.session.expiresAt <= now && <button className="button secondary" onClick={() => setModal("session")}>Renew session</button>}
                     {!account ? (
                       <button
                         className="button primary"
@@ -1104,6 +1115,16 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                           Verify receipt <ShieldCheck size={16} />
                         </button>
                       </>
+                    ) : table.round?.insurancePending ? (
+                      <>
+                        <span className="insurance-prompt">Dealer shows an ace · insurance pays 2:1</span>
+                        <button className="button primary" disabled={busy || !table.allowed.includes("insurance")}
+                          onClick={() => void command("insurance", {roundId: table.round!.id})}>
+                          Insure {money((ownRound?.hands[0].bet ?? 0) / 2)}
+                        </button>
+                        <button className="button secondary" disabled={busy || !table.allowed.includes("decline-insurance")}
+                          onClick={() => void command("decline-insurance", {roundId: table.round!.id})}>No insurance</button>
+                      </>
                     ) : table.round ? (
                       <>
                         <button
@@ -1127,11 +1148,12 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                         <button
                           className="button secondary"
                           disabled={busy || !table.allowed.includes("double")}
+                          title={doubleReason}
                           onClick={() =>
                             void command("double", { roundId: table.round!.id })
                           }
                         >
-                          Double
+                          Double down
                         </button>
                         <button
                           className="button secondary"
@@ -1142,6 +1164,10 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                         >
                           Split
                         </button>
+                        <button className="button secondary" disabled={busy || !table.allowed.includes("surrender")}
+                          onClick={() => void command("surrender", {roundId: table.round!.id})}>Surrender</button>
+                        {myTurn && <span className="action-help">{!table.allowed.includes("double") ? doubleReason : "Double: first two cards + matching stake and session allowance."} Split: equal ranks, up to four hands. Surrender: original two-card hand only.</span>}
+                        {myTurn && account && activeHand && account.session.limit - account.session.spent < activeHand.bet && account.session.expiresAt > now && <button className="text-link" onClick={() => setModal("session")}>Increase session allowance</button>}
                       </>
                     ) : table.seats[me]?.bet ? (
                       <>
@@ -1355,11 +1381,13 @@ export default function Club({cryptoTestingEnabled=false}:{cryptoTestingEnabled?
                   Split aces get one card each and cannot be resplit. A split 21
                   pays as a normal win.
                 </li>
-                <li>No insurance, surrender, or side bets.</li>
+                <li>Blackjack pays 3:2. Other wins pay 1:1. Split equal ranks up to four hands; double after splitting is allowed.</li>
+                <li>Insurance is offered to every player, including blackjack hands, before the dealer checks an ace. It costs half your original wager and pays 2:1 if the dealer has blackjack. Declining costs nothing. Insured blackjack guarantees an even-money net result before the table fee.</li>
+                <li>Late surrender returns half the original wager after the dealer checks for blackjack, before hitting or splitting. No surrender after a split. No side bets.</li>
                 <li>0.25% table fee on the initial wager, rounded down to the nearest cent. Charged once when your wager locks, including wins, losses, and ties. No extra fee for splits or doubles. For example, a $25 wager costs $25.06 including the $0.06 fee. This is additional to the game’s house edge.</li>
                 <li>
                   25 seconds per action. A missed turn or disconnect
-                  automatically stands.
+                  automatically stands, or declines insurance during the insurance offer.
                 </li>
                 <li>
                   Play money has no cash value. Simulated deposits and

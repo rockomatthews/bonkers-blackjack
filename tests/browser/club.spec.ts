@@ -106,7 +106,7 @@ test("seven browser identities share a private round, reconnect, and verify iden
       for (const p of pages) {
         // One snapshot avoids waiting for a button removed by a settlement poll
         // between separate isVisible/isEnabled calls (notably on slower CI).
-        const stand = p.getByRole("button", { name: "Stand", exact: true })
+        const stand = p.getByRole("button", { name: /^(Stand|No insurance)$/, exact: true })
           .and(p.locator("button:enabled"));
         if (await stand.count()) {
           try {

@@ -1,3 +1,4 @@
+import * as legacy from "../shared/legacy-game";
 import { FEE_POLICY, roundFee } from "../shared/fees";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -225,8 +226,7 @@ test("missed turns automatically stand and survive persisted state reload", asyn
   data = JSON.parse(JSON.stringify(data));
   const t = data.tables["bonkers-room"];
   if (t.round?.current) {
-    t.deadline = Date.now() - 1;
-    service(data).tick();
+    while (t.round.current) { t.deadline = Date.now() - 1; service(data).tick(); }
     assert.equal(t.round.phase, "settled");
     assert.equal(t.actions[0].automatic, true);
   }
@@ -264,6 +264,7 @@ test("table fee is explicit, conserved, session-capped and charged only once acr
     assert.equal(p.account.session.spent, 2506);
     assert.equal(data.feeRevenue, 6);
     await p.send("deal");
+    if (t.round!.insurancePending) await p.send("decline-insurance", {roundId:t.round!.id});
     if (t.round!.current) await p.send("double", {roundId:t.round!.id});
     const r = t.receipts[0];
     assert.equal(r.version, 2);
@@ -389,4 +390,72 @@ test("deadline rechecks revoked sessions, balances, minimum stakes and house res
     t.betDeadline=Date.now()-1;service(data).tick();
     assert.equal(t.round,null);assert.equal(t.bets[a.account.id],undefined);assert.ok(t.betNotices?.[a.account.id]);assert.equal(data.feeRevenue??0,0);
   }
+});
+
+test("insurance debit, signed replay, no double charging and dealer peek are conserved", async () => {
+  for (const blackjack of [true,false]) {
+    const data=emptyStore(); const p=await player(data,"Insurance"); const t=data.tables["bonkers-room"];
+    await p.send("seat",{index:0});
+    const entropy=hash("insurance-service");
+    for(let n=0;;n++) {
+      const seed="insurance-"+n;
+      const r=startRound("probe",[{id:p.account.id,name:p.account.name,bet:1000,entropy}],seed);
+      if(r.insurancePending && ((r.dealer[1]%13>=9)===blackjack)) { t.seed=seed;t.commitment=hash(seed); break; }
+    }
+    const before=p.account.balance;
+    await p.send("bet",{bet:1000,entropy,commitment:t.commitment});
+    await p.send("deal");
+    assert.equal(t.round!.insurancePending,true);
+    assert.equal(service(data).view(t,p.account).round!.dealer[1],-1);
+    await p.send("insurance",{roundId:t.round!.id});
+    assert.equal(p.account.session.spent,1502);
+    await assert.rejects(p.send("insurance",{roundId:t.round!.id}));
+    while(t.round!.current) await p.send("stand",{roundId:t.round!.id});
+    assert.equal(p.account.balance,before-1502+t.round!.players[0].payout);
+    assert.equal(t.round!.players[0].committed,1500);
+    assert.equal((await verifyReceipt(t.receipts[0])).valid,true);
+  }
+});
+
+test("signed late surrender returns half the wager with replayable receipt", async()=>{
+  const data=emptyStore();const p=await player(data,"Surrender");const t=data.tables["bonkers-room"];
+  await p.send("seat",{index:0});
+  const entropy=hash("surrender-service");
+  for(let n=0;;n++) {
+    const seed="surrender-"+n;
+    const r=startRound("probe",[{id:p.account.id,name:p.account.name,bet:1000,entropy}],seed);
+    if(!r.insurancePending && r.current) {t.seed=seed;t.commitment=hash(seed);break;}
+  }
+  const before=p.account.balance;
+  await p.send("bet",{bet:1000,entropy,commitment:t.commitment});await p.send("deal");
+  await p.send("surrender",{roundId:t.round!.id});
+  assert.equal(p.account.balance,before-502);
+  assert.equal(t.round!.players[0].hands[0].result,"Surrender");
+  assert.equal((await verifyReceipt(t.receipts[0])).valid,true);
+});
+
+test("insurance timeout declines after expiry and the offer never exposes surrender",async()=>{
+ const data=emptyStore();const p=await player(data,"Timeout insurance");const t=data.tables["bonkers-room"];
+ await p.send("seat",{index:0});const entropy=hash("timeout-insurance");
+ for(let n=0;;n++) {const seed='timeout-'+n;const r=startRound('probe',[{id:p.account.id,name:p.account.name,bet:1000,entropy}],seed);if(r.insurancePending){t.seed=seed;t.commitment=hash(seed);break;}}
+ await p.send("bet",{bet:1000,entropy,commitment:t.commitment});await p.send("deal");
+ const spent=p.account.session.spent;p.account.session.expiresAt=Date.now()-1;
+ assert.deepEqual(service(data).view(t,p.account).allowed,["decline-insurance","stand"]);
+ await assert.rejects(p.send("insurance",{roundId:t.round!.id}));
+ t.deadline=Date.now()-1;service(data).tick();
+ assert.equal(t.round!.insurancePending,false);assert.equal(p.account.session.spent,spent);
+ while(t.round!.current) {t.deadline=Date.now()-1;service(data).tick();}
+ assert.equal((await verifyReceipt(t.receipts[0])).valid,true);
+});
+
+test("persisted original-rules rounds finish and their original shuffle receipts still replay",async()=>{
+ const data=emptyStore();const p=await player(data,"Legacy round");const t=data.tables["bonkers-room"];
+ await p.send("seat",{index:0});const entropy=hash("legacy-rules");
+ for(let n=0;;n++){const seed='legacy-'+n;const r=legacy.startRound('old-round',[{id:p.account.id,name:p.account.name,bet:1000,entropy}],seed);if(r.current){t.seed=seed;t.commitment=hash(seed);break;}}
+ await p.send("bet",{bet:1000,entropy,commitment:t.commitment});
+ t.round=legacy.startRound('old-round',[{id:p.account.id,name:p.account.name,bet:1000,entropy}],t.seed);
+ t.betDeadline=null;
+ while(t.round.current) await p.send("stand",{roundId:t.round.id});
+ assert.equal(t.receipts[0].rules,legacy.RULES);
+ assert.equal((await verifyReceipt(t.receipts[0])).valid,true);
 });

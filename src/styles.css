@@ -1,11 +1,11 @@
 :root {
-  --bg: #131313;
-  --panel: #1b1b1a;
-  --line: #33312d;
-  --ivory: #f5efe0;
-  --muted: #aca79c;
-  --gold: #d8b36a;
-  --red: #e53532;
+  --bg: #080f24;
+  --panel: #111a30;
+  --line: #33405a;
+  --ivory: #fff7e4;
+  --muted: #b4b9c6;
+  --gold: #ffcf26;
+  --red: #ff3730;
   --green: #80b6a0;
   color-scheme: dark;
   font-family: var(--font-body), Arial, sans-serif;
@@ -3133,3 +3133,72 @@ html:has(.room-mode), body:has(.room-mode) { height: 100%; overflow: hidden; ove
  .betting-spot > small { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .wager-chip { animation: none; } }
+
+/* Logo palette: midnight navy, coin yellow, warm orange, and dollar red. */
+.club { background-color: var(--bg); }
+.button.primary { background: linear-gradient(135deg, #ffe431, #ff9f0a); color: #101629; border-color: #ffd52c; box-shadow: 0 4px 20px #ffac1920; }
+.panel, .tile-info, .modal { background-color: #111a30; border-color: #35405a; }
+.header { background: #080f24f5; border-color: #ffcf2630; }
+.table-tile { border-color: #ffcf2640; }
+.brand-logo, .hero-logo { object-fit: contain; }
+.room-mode .room-dock { background: linear-gradient(120deg,#081227f5,#16213bf2); border-color: #ffcf2680; }
+.room-mode .play-actions { flex-wrap: wrap; }
+.insurance-prompt, .action-help { flex-basis: 100%; font-size: 11px; color: #ffe798; text-align: center; }
+.room-mode .action-help { font-size: 10px; }
+/* Card centers follow the printed rectangles. Identity badges sit below each hand. */
+.orbital-room .seat-0 { --x: 20.5%; --y: 44%; }
+.orbital-room .seat-1 { --x: 28%; --y: 49.5%; }
+.orbital-room .seat-2 { --x: 38%; --y: 53%; }
+.orbital-room .seat-3 { --x: 50%; --y: 54%; }
+.orbital-room .seat-4 { --x: 62%; --y: 53%; }
+.orbital-room .seat-5 { --x: 72%; --y: 49.5%; }
+.orbital-room .seat-6 { --x: 79.5%; --y: 44%; }
+.orbital-room[data-room="high-society"] .seat-0 { --x: 22%; --y: 53%; }
+.orbital-room[data-room="high-society"] .seat-1 { --x: 29%; --y: 58%; }
+.orbital-room[data-room="high-society"] .seat-2 { --x: 39%; --y: 61%; }
+.orbital-room[data-room="high-society"] .seat-3 { --x: 50%; --y: 62%; }
+.orbital-room[data-room="high-society"] .seat-4 { --x: 61%; --y: 61%; }
+.orbital-room[data-room="high-society"] .seat-5 { --x: 71%; --y: 58%; }
+.orbital-room[data-room="high-society"] .seat-6 { --x: 78%; --y: 53%; }
+.room-mode .orbital-room .seat { left: var(--x); top: var(--y); margin-top: 0; }
+.room-mode .orbital-room .seat-hands { display: grid; top: 0; bottom: auto; margin: 0; transform: translateY(-50%); }
+.room-mode .orbital-room .player-avatar, .room-mode .orbital-room .empty-seat { margin-top: clamp(38px, 9vh, 85px); }
+.room-mode .orbital-room .player-hand { padding: 2px; border-radius: 8px; }
+.room-mode .orbital-room .current-hand { box-shadow: 0 0 0 1px #ffcf26, 0 0 14px #ffcf2650; }
+.room-mode .orbital-room .hand-cards { flex-wrap: nowrap; }
+.room-mode .orbital-room .seat-hands:has(.player-hand:nth-child(3)) .card.small { width: 25px; height: 35px; }
+.room-mode .orbital-room .seat-hands:has(.player-hand:nth-child(3)) .hand-total { font-size: 8px; }
+.room-mode .orbital-room .seat-hands:has(.player-hand:nth-child(3)) .hand-cards .card:not(:first-child) { margin-left: -17px; }
+@media (max-width: 600px) and (orientation: portrait) {
+ .room-mode .game-surface { top: 14%; height: 48%; }
+ .room-mode .room-backdrop { display: block; object-fit: fill; opacity: 1; }
+ .room-mode .room-viewport { background-size: auto 100%; }
+ .room-mode .orbital-room .seat { width: 13%; }
+ .room-mode .orbital-room .seat-hands .card.small { width: 19px; height: 28px; font-size: 8px; }
+ .room-mode .orbital-room .seat-hands .card.small > b { font-size: 12px; }
+ .room-mode .orbital-room .hand-cards .card:not(:first-child) { margin-left: -12px; }
+ .room-mode .orbital-room .hand-total { font-size: 7px; padding: 1px; }
+ .room-mode .orbital-room .player-avatar { width: 22px; height: 22px; }
+ .room-mode .orbital-room .seat > strong { font-size: 7px; padding: 2px; max-width: 48px; }
+ .room-mode .orbital-room .seat > small { display: none; }
+ .room-mode .orbital-room .empty-seat { font-size: 0; min-height: 28px; padding: 2px; }
+ .room-mode .orbital-room .empty-seat svg { width: 18px; height: 18px; }
+ .room-mode .your-hands { flex-wrap: wrap; }
+ .room-mode .action-help { font-size: 8px; }
+ .room-mode .orbital-room .dealer-cards .card { width: 26px; height: 36px; font-size: 10px; }
+ .room-mode .orbital-room .dealer-cards .card > b { font-size: 14px; }
+ .room-mode .orbital-room .dealer-zone { top: 4%; }
+ .room-mode .orbital-room .dealer-cards { top: 19%; }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+ .room-mode .action-help { display: none; }
+ .room-mode .orbital-room .seat-hands .card.small { width: 27px; height: 37px; }
+ .room-mode .orbital-room .player-avatar { width: 22px; height: 22px; }
+ .room-mode .orbital-room .seat > strong { font-size: 8px; padding: 2px 4px; }
+ .room-mode .room-dock { gap: 1px; }
+ .insurance-prompt { font-size: 10px; }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+ .room-mode .room-viewport { background-image: none !important; background-color: #080f24; }
+}

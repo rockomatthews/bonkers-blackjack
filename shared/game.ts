@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
-export const RULES = "bonkers-sixdeck-s17-v1";
+export const RULES = "bonkers-sixdeck-s17-insurance-surrender-v2";
 export const hash = (value: string) =>
   bytesToHex(sha256(new TextEncoder().encode(value)));
 export const money = (cents: number) =>
@@ -43,11 +43,11 @@ export function shuffle(seed: string, entropy: string[]) {
   }
   return deck;
 }
-export type Move = "hit" | "stand" | "double" | "split";
+export type Move = "hit" | "stand" | "double" | "split" | "insurance" | "decline-insurance" | "surrender";
 export type Hand = {
   cards: number[];
   bet: number;
-  status: "playing" | "stood" | "bust" | "natural";
+  status: "playing" | "stood" | "bust" | "natural" | "surrendered";
   split: boolean;
   splitAces: boolean;
   payout?: number;
@@ -59,6 +59,8 @@ export type PlayerRound = {
   hands: Hand[];
   committed: number;
   payout: number;
+  insurance?: number;
+  insuranceDecided?: boolean;
 };
 export type Round = {
   id: string;
@@ -69,6 +71,7 @@ export type Round = {
   cursor: number;
   phase: "playing" | "settled";
   current: [number, number] | null;
+  insurancePending?: boolean;
 };
 export type Wager = { id: string; name: string; bet: number; entropy: string };
 function draw(round: Round) {
@@ -123,7 +126,11 @@ export function startRound(id: string, wagers: Wager[], seed: string): Round {
   for (const player of round.players)
     if (total(player.hands[0].cards).value === 21)
       player.hands[0].status = "natural";
-  if (total(round.dealer).value === 21) settle(round);
+  if (rank(round.dealer[0]) === 0) {
+    round.insurancePending = true;
+    round.current = [0, 0];
+  }
+  else if (total(round.dealer).value === 21) settle(round);
   else advance(round);
   return round;
 }
@@ -133,7 +140,13 @@ export function allowed(round: Round, id: string, balance: number): Move[] {
     player = round.players[pi],
     hand = player.hands[hi];
   if (player.id !== id) return [];
+  if (round.insurancePending) {
+    return balance >= player.hands[0].bet / 2
+      ? ["insurance", "decline-insurance", "stand"]
+      : ["decline-insurance", "stand"];
+  }
   const result: Move[] = ["hit", "stand"];
+  if (hand.cards.length === 2 && !hand.split) result.push("surrender");
   if (hand.cards.length === 2 && balance >= hand.bet && !hand.splitAces) {
     result.push("double");
     if (rank(hand.cards[0]) === rank(hand.cards[1]) && player.hands.length < 4)
@@ -152,7 +165,22 @@ export function act(
   const [pi, hi] = round.current!,
     player = round.players[pi],
     hand = player.hands[hi];
+  if (round.insurancePending) {
+    const stake = move === "insurance" ? hand.bet / 2 : 0;
+    player.insurance = stake;
+    player.insuranceDecided = true;
+    player.committed += stake;
+    const next = round.players.findIndex(p => !p.insuranceDecided);
+    if (next >= 0) round.current = [next, 0];
+    else {
+      round.insurancePending = false;
+      if (total(round.dealer).value === 21) settle(round);
+      else advance(round);
+    }
+    return stake;
+  }
   let extra = 0;
+  if (move === "surrender") hand.status = "surrendered";
   if (move === "stand") hand.status = "stood";
   if (move === "hit" || move === "double") {
     if (move === "double") {
@@ -208,13 +236,17 @@ export function settle(round: Round) {
   const dealer = total(round.dealer).value,
     dealerNatural = round.dealer.length === 2 && dealer === 21;
   for (const player of round.players) {
-    player.payout = 0;
+    player.payout = dealerNatural ? (player.insurance ?? 0) * 3 : 0;
     for (const hand of player.hands) {
       const value = total(hand.cards).value,
         natural = !hand.split && hand.cards.length === 2 && value === 21;
       let payout = 0,
         result = "Dealer wins";
-      if (value > 21) result = "Bust";
+      if (hand.status === "surrendered" && !dealerNatural) {
+        payout = hand.bet / 2;
+        result = "Surrender";
+      }
+      else if (value > 21) result = "Bust";
       else if (dealerNatural) {
         if (natural) {
           payout = hand.bet;
