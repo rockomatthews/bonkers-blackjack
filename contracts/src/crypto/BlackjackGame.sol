@@ -103,4 +103,41 @@ contract BlackjackGame {
         r.phase=5;for(uint256 i=0;i<r.players.length;i++)vault.settle(exposure(id,i),r.stakes[i]*16,true);emit Finished(id,bytes32(0),true);
     }
     function state(bytes32 id) external view returns(uint8 phase,uint64 deadline,uint8 active,bytes32 entropy,address[] memory players,uint128[] memory stakes,uint128[] memory added,uint256 actionCount){Round storage r=rounds[id];return(r.phase,r.deadline,r.active,r.entropy,r.players,r.stakes,r.added,r.actions.length);}
+    uint8 public constant coinRulesVersion=1;
+    struct CoinRound {address player;bytes32 commitment;bytes32 entropy;uint128 stake;uint64 deadline;uint8 count;uint8 choice;uint8 phase;uint8 heads;uint128 payout;bool failure;}
+    mapping(bytes32=>CoinRound) private coinRounds;
+    event CoinOffered(bytes32 indexed id,address indexed player,bytes32 commitment,uint128 stake,uint8 count);
+    event CoinJoined(bytes32 indexed id,bytes32 entropy,uint8 choice);
+    event CoinFinished(bytes32 indexed id,bytes32 seed,uint8 heads,uint128 payout,bool push,bool failure);
+    function coinExposure(bytes32 id) public view returns(bytes32){return keccak256(abi.encode(address(this),"TOIN_COSS",id));}
+    function offerCoin(bytes32 id,bytes32 commitment,address player,uint128 stake,uint8 count) external onlyOperator {
+        require(coinRounds[id].phase==0&&commitment!=bytes32(0)&&player!=address(0),"invalid coin offer");
+        require((count==1||count==11||count==21)&&stake>=1e6&&stake<=5e6&&stake%10000==0,"coin terms");
+        coinRounds[id]=CoinRound(player,commitment,bytes32(0),stake,uint64(block.timestamp+OPERATOR_SECONDS),count,0,1,0,0,false);
+        emit CoinOffered(id,player,commitment,stake,count);
+    }
+    function joinCoin(bytes32 id,uint8 choice,bytes32 playerEntropy) external {
+        CoinRound storage r=coinRounds[id];require(r.phase==1&&msg.sender==r.player&&block.timestamp<r.deadline&&choice<=1,"coin join");
+        r.choice=choice;r.entropy=keccak256(abi.encode(address(this),block.chainid,id,playerEntropy));
+        vault.lockCoin(coinExposure(id),r.player,r.stake);r.phase=2;r.deadline=uint64(block.timestamp+OPERATOR_SECONDS);
+        emit CoinJoined(id,r.entropy,choice);
+    }
+    function coinHeads(bytes32 seed,bytes32 entropy,uint8 count) public pure returns(uint8 heads){
+        require(count==1||count==11||count==21,"coin count");
+        for(uint8 n=0;n<count;n++)if(uint256(keccak256(abi.encode(seed,entropy,n)))&1==0)heads++;
+    }
+    function settleCoin(bytes32 id,bytes32 seed) external {
+        CoinRound storage r=coinRounds[id];require(r.phase==2&&block.timestamp<r.deadline&&keccak256(abi.encode(seed))==r.commitment,"coin reveal");
+        r.heads=coinHeads(seed,r.entropy,r.count);bool push=uint256(r.heads)*2==r.count;
+        bool win=(r.choice==0&&uint256(r.heads)*2>r.count)||(r.choice==1&&uint256(r.heads)*2<r.count);
+        r.payout=push?r.stake:win?r.stake*2:0;r.phase=3;
+        vault.settleCoin(coinExposure(id),r.payout,push);emit CoinFinished(id,seed,r.heads,r.payout,push,false);
+    }
+    function claimCoinFailure(bytes32 id) external {
+        CoinRound storage r=coinRounds[id];require((r.phase==1||r.phase==2)&&block.timestamp>=r.deadline,"coin timeout");
+        bool joined=r.phase==2;r.phase=3;r.failure=true;if(joined){r.payout=r.stake*2;vault.settleCoin(coinExposure(id),r.payout,true);}
+        emit CoinFinished(id,bytes32(0),0,r.payout,false,true);
+    }
+    function coinState(bytes32 id) external view returns(CoinRound memory){return coinRounds[id];}
+
 }

@@ -46,9 +46,9 @@ const headingFont = localFont({
 });
 import "../src/styles.css";
 export const metadata: Metadata = {
-  title: "Bonkers Blackjack — Cards on the table. Rules out the window? Never.",
+  title: "Bonkers — Blackjack & Toin Coss",
   description:
-    "Your crew. Your table. A little Bonkers. Social blackjack with native USDC on Base and verifiable rounds.",
+    "A little mad. All Bonkers. Blackjack and Toin Coss with one USDC balance on Base.",
   icons: { icon: "/bonkers-blackjack-logo.png" },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {

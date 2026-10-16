@@ -11,7 +11,7 @@
   "playerCannotRegister": true,
   "playerWithdrawsWhilePaused": true,
   "fee": "0.01 USDC",
-  "settlementHash": "0x9a1231a89ae9fdbd0a7c704b3d667b84fa4adc7970b71d7f982fa1867659e7ff",
+  "settlementHash": "0x2d6d8abf4a14545d2041f8a55987d462f20710ee89293f05a9cec59ac955189b",
   "receiptVerified": true,
   "browserErrors": []
 }

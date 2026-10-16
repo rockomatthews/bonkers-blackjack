@@ -1,0 +1,48 @@
+{
+  "network": "LOCAL Anvil chain 8453, mock USDC — NOT live Base",
+  "mainnetTransactions": 0,
+  "sharedVault": "0x02299a3DcaB0938d0544130D054Bcbfb32B588C3",
+  "pendingBlackjackBlocksOtherBlackjackAndCoin": true,
+  "directExpiredCoinRecovery": true,
+  "coinProofs": [
+    {
+      "id": "0x3258c33ad813429cedcdaa79084d00bc46e90435da15f146dfd0c2025db5941b",
+      "commitment": "0x0b2850e64bf042a0158d31b14f7fda9f95462a2dba032fbc1e765a5d3271a761",
+      "seed": "0x5a9b6511787d9779206d5a8136ab3b7f158ee359060586fb4b169e463e5906b6",
+      "entropy": "0x8d7c89c5b3319b242fb9f76aff910fa1eac4a5933759076d50d6ac246656b20b",
+      "count": 1,
+      "choice": 0,
+      "stake": "1000000",
+      "payout": "0",
+      "heads": 0,
+      "push": false,
+      "transaction": "0x5594a389e3e6d320c2d886ecff9572edd58c356ed028e919f58fa66135e3b21e"
+    },
+    {
+      "id": "0x1fe7a59ca46d217fd3047711a092fdd4d77c4745a71516ceb96b4b92745590ce",
+      "commitment": "0x64b30cae8f0c05862ad09595eede8b56c61438628f25c62a355f1573e9e648f6",
+      "seed": "0xcd852a5306ffd3b51e01f9987c68a2c06478c4f9b873b5a8cdad24a854114046",
+      "entropy": "0x923e35c8004d97e3a0a67ed574b924890d570d18c88e1200cbbeb791fe019c5a",
+      "count": 11,
+      "choice": 0,
+      "stake": "1000000",
+      "payout": "0",
+      "heads": 2,
+      "push": false,
+      "transaction": "0x3ff4fbbedaf42be99e14e9423dfc16bd750cd2824523e8afc07410d3d749de08"
+    },
+    {
+      "id": "0x8d9d0a73293c739565b436c19aec941b8234835675e89d7d4ddae2a7c5ccb1a4",
+      "commitment": "0xbb1cb54e77de1a7dd9977bb733b9c51f033c656872bd26310a1b0144ec9f4f65",
+      "seed": "0x7171ded532c27c66f08038c65c8f8b49d80b3f2239c586225406b4f7468f9bd0",
+      "entropy": "0xbb888fb796c78edc9bd4051165a732c88dcf5e12804d70adaf2ae0105f1ad6ed",
+      "count": 21,
+      "choice": 0,
+      "stake": "1000000",
+      "payout": "0",
+      "heads": 8,
+      "push": false,
+      "transaction": "0x911859517a62f13645a2755e2d261d4578ff7b0de73ba0133a0517b71a3e06a5"
+    }
+  ]
+}

@@ -22,6 +22,7 @@ contract PlayerVault is EIP712, ReentrancyGuard {
     mapping(address=>uint256) public available;
     mapping(address=>uint256) public withdrawalNonces;
     mapping(bytes32=>Exposure) public exposures;
+    mapping(bytes32=>bool) public coinWagers;
     struct Exposure { address player; uint128 initial; uint128 locked; uint128 maximum; uint128 fee; bool closed; }
     bytes32 public constant WITHDRAW_TYPEHASH=keccak256("Withdrawal(address owner,address recipient,uint256 amount,uint256 nonce,uint256 deadline)");
     event Deposited(address indexed owner,uint256 amount);
@@ -82,8 +83,26 @@ contract PlayerVault is EIP712, ReentrancyGuard {
         exposures[id]=Exposure(owner,stake,stake,maximum,fee,false);
         emit WagerLocked(id,owner,stake,fee,maximum);
     }
+    function lockCoin(bytes32 id,address owner,uint128 stake) external onlyGame {
+        require(!paused&&exposures[id].player==address(0)&&owner!=address(0),"invalid coin wager");
+        require(stake>=1e6&&stake<=5e6&&stake%10000==0,"coin stake 1-5 USDC cents");
+        uint128 fee=uint128(uint256(stake)*25/10_000/10_000*10_000);
+        require(available[owner]>=uint256(stake)+fee&&house-reserved>=stake,"insufficient funds");
+        available[owner]-=uint256(stake)+fee;playerAvailable-=uint256(stake)+fee;
+        house+=fee;feeRevenue+=fee;reserved+=uint256(stake)+fee;playerLocked+=stake;
+        exposures[id]=Exposure(owner,stake,stake,stake*2,fee,false);coinWagers[id]=true;
+        emit WagerLocked(id,owner,stake,fee,stake*2);
+    }
+    function settleCoin(bytes32 id,uint128 payout,bool refundFee) external onlyGame {
+        Exposure storage e=exposures[id];require(coinWagers[id]&&!e.closed&&payout<=e.maximum,"invalid coin settlement");
+        require(!refundFee||payout==e.initial||payout==e.maximum,"invalid fee refund");
+        e.closed=true;reserved-=uint256(e.initial)+e.fee;playerLocked-=e.initial;
+        house+=e.initial;house-=payout;available[e.player]+=payout;playerAvailable+=payout;
+        if(refundFee){house-=e.fee;feeRevenue-=e.fee;available[e.player]+=e.fee;playerAvailable+=e.fee;}
+        emit Settled(id,e.player,payout,false);
+    }
     function addStake(bytes32 id,uint128 amount) external onlyGame {
-        Exposure storage e=exposures[id];require(e.player!=address(0)&&!e.closed&&amount>0,"invalid exposure");
+        Exposure storage e=exposures[id];require(!coinWagers[id]&&e.player!=address(0)&&!e.closed&&amount>0,"invalid exposure");
         // Four doubled hands plus a locked half-wager insurance premium.
         require(e.locked+amount<=e.initial*17/2 && available[e.player]>=amount,"stake limit");
         available[e.player]-=amount;playerAvailable-=amount;playerLocked+=amount;
@@ -91,7 +110,7 @@ contract PlayerVault is EIP712, ReentrancyGuard {
     }
     // Game may call only after independently validated settlement or its enforced fault deadline.
     function settle(bytes32 id,uint128 payout,bool operatorFailure) external onlyGame {
-        Exposure storage e=exposures[id];require(e.player!=address(0)&&!e.closed,"already settled");
+        Exposure storage e=exposures[id];require(!coinWagers[id]&&e.player!=address(0)&&!e.closed,"already settled");
         require(operatorFailure?payout==e.maximum:payout<=e.maximum,"invalid payout");
         e.closed=true;reserved-=e.maximum-e.locked+e.fee;playerLocked-=e.locked;
         house+=e.locked;house-=payout;available[e.player]+=payout;playerAvailable+=payout;

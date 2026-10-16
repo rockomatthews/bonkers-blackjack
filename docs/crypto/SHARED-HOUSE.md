@@ -17,7 +17,7 @@ House setup at `/house`:
 5. Only when the owner decides the house is funded, press **House funded — open deposits** and confirm the treasury-only contract transaction. Nothing in deployment, funding, a server restart, or an environment switch unpauses automatically.
 6. A different wallet can now connect, approve a chosen amount, deposit, play a 5-USDC initial wager, and withdraw its own funds. The house can close deposits at any time. Withdrawing house funds closes deposits first and cannot take player balances or collateral reserved for active hands.
 
-New contracts enforce 75 USDC free collateral for Base deposits and opening, while enforcing the same original reserved-collateral accounting. A capacity shortfall closes new deposits/play in the UI. Existing immutable deployments are not modified by publishing this code. Do not send USDC directly to the house address/vault expecting player credit: the deposit button calls `depositFor` after exact approval.
+New contracts enforce 75 USDC free collateral for Base deposits and opening, while enforcing the same original reserved-collateral accounting. A shortfall below 75 USDC free collateral closes new deposits/blackjack offers. Toin Coss can continue from existing player balances while unpaused if its smaller liability is fully covered. Existing immutable deployments are not modified by publishing this code. Do not send USDC directly to the house address/vault expecting player credit: the deposit button calls `depositFor` after exact approval.
 
 ## Capacity and the 75-USDC minimum
 
@@ -42,7 +42,19 @@ CoinPoker's public [cashier guide](https://coinpoker.com/deposits-and-withdrawal
 
 The local preview does not load production secrets or create a second house registry. It links to the hosted shared-house cashier for financial actions. An attempted full production-env injection was blocked by automatic review and was not performed. Disposable browser tests explicitly opt into an isolated local file store and local Anvil RPC; no such test configuration is used on the hosted site.
 
-## Verification
+## Bonkers casino extension
+
+The homepage is now Bonkers with two entrances: `/blackjack` and `/toin-coss`. Only the first blackjack room remains open; the other two remain Coming soon. Both games use the same vault and available player balance. A new exact-artifact deployment adds the coin subsystem; publishing UI cannot upgrade an immutable existing contract. Production had no registered deployment when this extension began. Old registry entries without `casinoVersion` keep coin play disabled and retain withdrawal access.
+
+Toin Coss accepts 1–5 native USDC, in cents, for one toss or the majority of **11 or 21** tosses. The user selected odd batches, so ties cannot occur. One wager covers the entire batch; a win returns 2x the wager, including the stake. The displayed 0.25% wager fee is rounded down to cents (zero below 4 USDC). Heads and tails have equal probability under the hash-uniformity assumption; batch history does not predict future outcomes.
+
+The dealer commits a fresh encrypted seed before the assigned player joins with browser-generated entropy. The contract computes all tosses from that seed, the bound entropy, and each index, then checks the reveal. The browser independently replays completed receipts. A joined coin round that misses the 60-second reveal deadline pays 2x the stake and refunds its fee through a public recovery call. The UI includes a direct wallet recovery button, independent of the dealer API. No fake tosses are inserted into recovered history. This is an operator commit/reveal design, not an external VRF or an independent security audit.
+
+The vault atomically backs every joined coin wager with one wager of house collateral plus its refundable fee. Blackjack retains its existing worst-case reserve of 15x the initial stake. Player balances remain separately accounted. Private Postgres row locking also counts unjoined pending offers before spending dealer gas, preventing the site from promising the same collateral twice across games. One wallet can have one pending/active game at a time. A separate operational limit defaults to **10 pending plus active rounds across both games** (`BONKERS_MAX_ACTIVE_ROUNDS`, 1–50); this does not guarantee ten rounds when collateral is insufficient. The contract reserve remains the final financial guard.
+
+Casino-extension verification: 69 application tests, 58 Solidity tests (including inherited regressions), production build, TypeScript, and all three wallet browser tests passed locally. The browser flow covers the shared balance, single/11/21 tosses, replayed receipts, history, pending blackjack admission blocking a second blackjack and a coin wager, explicit opening, and withdrawal while paused. New screenshots cover 1440, 390 and 844 pixel widths without horizontal overflow. `evidence/casino-local.json` contains local mock-USDC receipts and explicitly records zero mainnet transactions. Venice was consulted; incorrect/general claims in its output were not treated as evidence.
+
+## Earlier shared-house verification
 
 - 65 application tests passed, including fixed-origin rejection, pinned house/default closed, EIP-6963 Base discovery over Phantom and all prior rules regressions.
 - 39 Solidity tests passed, including assigned-player protection, separate wallet exits, reserve accounting, and funding-not-opening deposits.
