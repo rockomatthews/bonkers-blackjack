@@ -68,4 +68,11 @@ contract PlayerVaultTest {
         vm.expectRevert();vm.prank(bob);vault.withdraw(1,bob);vm.expectRevert();vm.prank(bob);vault.withdrawProfit(1);conserved();
     }
 
+    function testInsuranceAndFourDoubledHandsFitExactLockedStakeCap() public {
+        vault.lock(ID,alice,100e6);vault.addStake(ID,50e6);vault.addStake(ID,700e6);
+        require(vault.playerLocked()==850e6);
+        vm.expectRevert();vault.addStake(ID,1);
+        vault.settle(ID,1600e6,false);require(vault.reserved()==0);conserved();
+    }
+
 }

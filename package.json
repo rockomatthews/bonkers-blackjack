@@ -17,7 +17,8 @@
     "crypto:verify-lab": "node --import tsx scripts/crypto/verify-lab.ts",
     "crypto:verify-pilot": "node --import tsx scripts/crypto/verify-pilot.ts",
     "crypto:artifact": "cd contracts && forge build --silent && cd .. && node --import tsx scripts/crypto/export-artifact.ts",
-    "crypto:pilot": "CRYPTO_LAB_ENABLED=1 next dev --hostname 127.0.0.1 --port 3107"
+    "crypto:pilot": "CRYPTO_LAB_ENABLED=1 next dev --hostname 127.0.0.1 --port 3107",
+    "crypto:verify-v2": "node --import tsx scripts/crypto/verify-v2-local.ts"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "5.3.0",

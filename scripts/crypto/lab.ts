@@ -41,7 +41,7 @@ try{
  await wait(await wallet.writeContract({account:operator,address:BASE_USDC,abi:erc20Abi,functionName:'approve',args:[vault,100000n*1000000n]}));
  await wait(await wallet.writeContract({account:operator,address:vault,abi:parseAbi(['function fundHouse(uint256)','function setPaused(bool)']),functionName:'fundHouse',args:[100000n*1000000n]}));
  await wait(await wallet.writeContract({account:operator,address:vault,abi:parseAbi(['function setPaused(bool)']),functionName:'setPaused',args:[false]}));
- const config:LabConfig={chainId:31337,rpc,game,vault,token:BASE_USDC,operator,player,startBlock:deployed.blockNumber.toString(),forkBlock:forkBlock.toString(),createdAt:new Date().toISOString()};
+ const config:LabConfig={chainId:31337,rulesVersion:2,rpc,game,vault,token:BASE_USDC,operator,player,startBlock:deployed.blockNumber.toString(),forkBlock:forkBlock.toString(),createdAt:new Date().toISOString()};
  await writeFile(`${dir}/config.json`,JSON.stringify(config,null,2),{mode:0o600});
  const env={...process.env,CRYPTO_LAB_ENABLED:'1',CRYPTO_LAB_DIR:dir};
  const worker=spawn(process.execPath,['--import','tsx','scripts/crypto/lab-worker.ts'],{env,stdio:'inherit'});children.push(worker);

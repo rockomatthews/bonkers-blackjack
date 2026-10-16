@@ -1,3 +1,11 @@
+# Contract candidates
+
+`src/crypto/` contains the current PlayerVault, BlackjackGame, and deterministic BlackjackVerifier candidates. Version 2 adds half-wager insurance before an ace peek and late surrender, with matching TypeScript replay and wallet controls. Read [the rules-v2 verification record](../docs/crypto/RULES-V2.md). Existing deployed contracts are immutable and retain their original rules.
+
+The separate `src/EscrowPrototype.sol` experiment is described below. Its rejecting verifier is not the `src/crypto/BlackjackReplay.sol` verifier.
+
+---
+
 # Escrow research prototype — NOT a blackjack settlement system
 
 This folder is an isolated, unaudited testnet-only escrow experiment. It is **not connected to the website** and has not been deployed. Constructors permit only local chain 31337 and Base Sepolia 84532. Never use real tokens or real house funds.

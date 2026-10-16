@@ -83,7 +83,8 @@ contract PlayerVault is EIP712, ReentrancyGuard {
     }
     function addStake(bytes32 id,uint128 amount) external onlyGame {
         Exposure storage e=exposures[id];require(e.player!=address(0)&&!e.closed&&amount>0,"invalid exposure");
-        require(e.locked+amount<=e.initial*8 && available[e.player]>=amount,"stake limit");
+        // Four doubled hands plus a locked half-wager insurance premium.
+        require(e.locked+amount<=e.initial*17/2 && available[e.player]>=amount,"stake limit");
         available[e.player]-=amount;playerAvailable-=amount;playerLocked+=amount;
         e.locked+=amount;reserved-=amount;emit StakeAdded(id,amount);
     }

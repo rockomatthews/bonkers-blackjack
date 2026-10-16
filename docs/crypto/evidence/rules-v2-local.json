@@ -1,0 +1,36 @@
+{
+  "network": "fresh local Anvil",
+  "chainId": 31337,
+  "token": "mock USDC",
+  "rulesVersion": 2,
+  "rounds": 64,
+  "seats": 448,
+  "hands": 481,
+  "actions": {
+    "hit": 101,
+    "stand": 84,
+    "double": 220,
+    "split": 33,
+    "insurance": 7,
+    "decline": 6,
+    "surrender": 103
+  },
+  "exactObservationAndPayoutMatches": true,
+  "tamperedAddedStakeRejected": true,
+  "transactions": [
+    {
+      "case": "insured dealer blackjack",
+      "settlementHash": "0x02a2bb0e06b8858a697438549c5517f10cf83a094df5bb419a12b12134c3a009",
+      "payout": "7500000",
+      "added": "2500000"
+    },
+    {
+      "case": "insurance loss then late surrender",
+      "settlementHash": "0x8a552eab930d3868280642cac4d1ba88d5c459e0ea1802512891f9b1fe70a2a2",
+      "payout": "2500000",
+      "added": "2500000"
+    }
+  ],
+  "withdrawalVerified": true,
+  "mainnetTransactions": 0
+}

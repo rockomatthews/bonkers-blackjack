@@ -1,3 +1,13 @@
+# Rules v2 checkpoint — October 15, 2026
+
+Rooms, branding, and complete browser rules were pushed to `main` as `df41fc3`. The current contract update adds insurance, late surrender, versioned observations/replay, exact half-wager stake accounting, wallet controls, and a rebuilt deployment artifact. Existing immutable deployments keep their original rules; this is not an in-place contract upgrade.
+
+See [RULES-V2.md](RULES-V2.md) for verification and remaining integration boundaries. Verification for this update used Foundry and a fresh local Anvil chain with mock USDC. No mainnet transactions were sent by this run.
+
+The checkpoints below are historical, including descriptions that were superseded by later work.
+
+---
+
 # Implementation checkpoint — October 1, 2026
 
 Branch: `codex/crypto-private`. Public `main` remains untouched. **Private crypto testing is implemented; public production is not ready.** No real Base deployment or transaction was performed by the agent.

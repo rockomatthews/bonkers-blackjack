@@ -28,6 +28,7 @@ contract BlackjackGame {
         session.remaining-=spend;
     }
 
+    uint8 public constant rulesVersion=2;
     uint64 public constant TURN_SECONDS=30;
     uint64 public constant OPERATOR_SECONDS=60;
     struct Round {
@@ -65,7 +66,7 @@ contract BlackjackGame {
     }
     function observe(bytes32 id,bytes calldata data) external onlyOperator {
         Round storage r=rounds[id];require(r.phase==2&&block.timestamp<r.deadline&&data.length>=5&&data.length<=2048,"observation");
-        require(uint8(data[0])==1&&uint8(data[1])<=1&&uint8(data[3])==r.players.length,"format");bool done=data[1]==0x01;uint8 active=uint8(data[2]);
+        require(uint8(data[0])==2&&uint8(data[1])<=1&&uint8(data[3])==r.players.length,"format");bool done=data[1]==0x01;uint8 active=uint8(data[2]);
         require(done?active==r.players.length:active<r.players.length,"seat");
         r.legal=done?0:Replay.legalMoves(data);r.observations.push(keccak256(data));r.active=active;r.phase=done?4:3;r.deadline=uint64(block.timestamp+(done?OPERATOR_SECONDS:TURN_SECONDS));emit Observed(id,data,done,active,r.deadline);
     }
@@ -74,7 +75,8 @@ contract BlackjackGame {
     function _playerAction(bytes32 id,address owner,uint8 move,uint128 extra,bytes32 expectedObservation) private {
         Round storage r=rounds[id];require(r.phase==3&&block.timestamp<r.deadline&&r.players[r.active]==owner,"turn");
         require(r.observations[r.observations.length-1]==expectedObservation,"stale observation");
-        require(move>=1&&move<=4&&(r.legal & (uint8(1)<<move))!=0&&((move<=2&&extra==0)||(move>=3&&extra==r.stakes[r.active])),"action stake");
+        uint128 expectedExtra=(move==3||move==4)?r.stakes[r.active]:(move==5?r.stakes[r.active]/2:0);
+        require(move>=1&&move<=7&&(r.legal & (uint8(1)<<move))!=0&&extra==expectedExtra,"action stake");
         if(extra>0){vault.addStake(exposure(id,r.active),extra);r.added[r.active]+=extra;}
         _act(id,r,move,extra,false);
     }
