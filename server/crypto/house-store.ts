@@ -6,7 +6,7 @@ import type {Address,Hex} from 'viem';
 import type {HouseDeployment} from '../../shared/crypto/house';
 export type SavedRound={id:Hex;owner:Address;encryptedSeed:string;commitment:Hex;created:number;block:string;closed?:boolean};
 export type SavedCoin=SavedRound&{stake:string;count:1|11|21};
-export type HouseData={coins?:Record<string,SavedCoin>;coinHistory?:Record<string,SavedCoin[]>;deployment?:HouseDeployment;rounds:Record<string,SavedRound>;challenges:Record<string,{owner:Address;expires:number}>};
+export type HouseData={coins?:Record<string,SavedCoin>;coinHistory?:Record<string,SavedCoin[]>;deployment?:HouseDeployment;rounds:Record<string,SavedRound>;challenges:Record<string,{owner:Address;expires:number;message?:string;origin?:string}>};
 const g=globalThis as unknown as {housePool?:Pool;houseQueue?:Promise<unknown>;houseInit?:Promise<unknown>};
 export function houseStoreAvailable(){return !!(process.env.BONKERS_DEALER_DATABASE_URL||process.env.POSTGRES_URL||process.env.DATABASE_URL||(!process.env.VERCEL&&process.env.BONKERS_LOCAL_STORE==='1'));}
 export async function houseTransaction<T>(fn:(s:HouseData)=>Promise<T>|T):Promise<T>{
