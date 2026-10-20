@@ -1,14 +1,14 @@
 import {cookies} from 'next/headers';
+import {houseRequestOrigin,housePostOrigin} from '../../../../server/crypto/origin';
 import {isAddress,isHex,type Address,type Hex} from 'viem';
 import {houseStatus,challenge,login,session,register,offer,progress,readRound,offerCoin,progressCoin,readCoin} from '../../../../server/crypto/house';
 export const runtime='nodejs';export const dynamic='force-dynamic';export const maxDuration=60;
 const headers={'Cache-Control':'no-store'};
-const siteOrigin=()=>new URL(process.env.BONKERS_SITE_ORIGIN??'https://bonkers-blackjack.vercel.app').origin;
 export async function GET(request:Request,{params}:{params:Promise<{action:string}>}){
- try{const{action}=await params;if(action==='status')return Response.json(await houseStatus(),{headers});if(action==='session'){const owner=await session((await cookies()).get('bonkers-wallet')?.value??'',siteOrigin());return Response.json({owner},{headers});}if(action==='coin'){const owner=await session((await cookies()).get('bonkers-wallet')?.value??'',siteOrigin());return Response.json(await readCoin(owner),{headers});}if(action==='round'){const owner=await session((await cookies()).get('bonkers-wallet')?.value??'',siteOrigin());return Response.json(await readRound(owner),{headers});}return new Response(null,{status:404});}catch{return Response.json({error:'Reconnect your wallet to load the round.'},{status:401,headers});}
+ try{const{action}=await params;if(action==='status')return Response.json(await houseStatus(),{headers});const origin=houseRequestOrigin(request);if(!origin)return Response.json({error:'Unrecognized site origin'},{status:403,headers});if(action==='session'){const owner=await session((await cookies()).get('bonkers-wallet')?.value??'',origin);return Response.json({owner},{headers});}if(action==='coin'){const owner=await session((await cookies()).get('bonkers-wallet')?.value??'',origin);return Response.json(await readCoin(owner),{headers});}if(action==='round'){const owner=await session((await cookies()).get('bonkers-wallet')?.value??'',origin);return Response.json(await readRound(owner),{headers});}return new Response(null,{status:404});}catch{return Response.json({error:'Reconnect your wallet to load the round.'},{status:401,headers});}
 }
 export async function POST(request:Request,{params}:{params:Promise<{action:string}>}){
- const origin=siteOrigin();if(request.headers.get('origin')!==origin)return Response.json({error:'Same-origin request required'},{status:403,headers});
+ const origin=housePostOrigin(request);if(!origin)return Response.json({error:'Same-origin request required'},{status:403,headers});
  try{
   const text=await request.text();if(text.length>8192)return new Response(null,{status:413});const b=JSON.parse(text);const{action}=await params;
   if(action==='challenge'){if(typeof b.owner!=='string'||!isAddress(b.owner))throw Error('Invalid wallet');return Response.json(await challenge(b.owner as Address,origin),{headers});}

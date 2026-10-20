@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {houseRequestOrigin,housePostOrigin} from '../server/crypto/origin';
 import {POST} from '../app/api/house/[action]/route';
 import {houseStatus} from '../server/crypto/house';
 import {HOUSE_ADDRESS,walletLoginMessage} from '../shared/crypto/house';
@@ -14,3 +15,26 @@ test('announced wallets replace duplicate legacy wrappers without hiding other e
  const w=new EventTarget() as EventTarget&{ethereum?:unknown};w.ethereum={providers:[legacy,phantom]};const original=Object.getOwnPropertyDescriptor(globalThis,'window');Object.defineProperty(globalThis,'window',{value:w,configurable:true});let found:{name:string;provider:EIP1193Provider}[]=[];
  try{w.addEventListener('eip6963:requestProvider',()=>w.dispatchEvent(new CustomEvent('eip6963:announceProvider',{detail:{info:{uuid:'metamask-announced',rdns:'io.metamask',name:'MetaMask'},provider:announced}})));const stop=discoverWallets(list=>{found=list;});assert.equal(found.filter(v=>v.name==='MetaMask').length,1);assert.equal(found.find(v=>v.name==='MetaMask')!.provider,announced);assert.ok(found.some(v=>v.name==='Phantom'));stop();}finally{if(original)Object.defineProperty(globalThis,'window',original);else Reflect.deleteProperty(globalThis,'window');}
 });
+
+test('custom domains bind sign-in to the page origin even with the previous domain configured',()=>{
+ const saved=process.env.BONKERS_SITE_ORIGIN;process.env.BONKERS_SITE_ORIGIN='https://bonkers-blackjack.vercel.app';
+ try{for(const origin of ['https://bonkers.cash','https://www.bonkers.cash','https://bonkers-blackjack.vercel.app']){
+  const request=new Request(origin+'/api/house/challenge',{method:'POST',headers:{origin}});
+  assert.equal(houseRequestOrigin(request),origin);assert.equal(housePostOrigin(request),origin);
+ }}finally{if(saved===undefined)delete process.env.BONKERS_SITE_ORIGIN;else process.env.BONKERS_SITE_ORIGIN=saved;}
+});
+test('origin gate rejects hostile sites, absent origins, sibling-domain CSRF, and spoofed proxy headers',()=>{
+ for(const [url,origin,extra]of [
+  ['https://attacker.example','https://attacker.example',{}],
+  ['https://www.bonkers.cash','https://attacker.example',{}],
+  ['https://www.bonkers.cash','https://bonkers.cash',{}],
+  ['https://www.bonkers.cash','null',{}],
+  ['https://www.bonkers.cash','',{}],
+  ['https://attacker.example','https://attacker.example',{host:'www.bonkers.cash','x-forwarded-host':'www.bonkers.cash'}],
+  ['https://attacker.example','https://www.bonkers.cash',{'x-forwarded-host':'www.bonkers.cash'}],
+  ['https://www.bonkers.cash','https://www.bonkers.cash',{host:'attacker.example'}],
+  ['http://www.bonkers.cash','http://www.bonkers.cash',{}],
+ ] as const){assert.equal(housePostOrigin(new Request(url+'/api/house/challenge',{method:'POST',headers:{...(origin?{origin}:{}),...extra}})),null);}
+});
+
+test('configured local origin survives Next internal URL reconstruction',()=>{const saved=process.env.BONKERS_SITE_ORIGIN;process.env.BONKERS_SITE_ORIGIN='http://127.0.0.1:3108';try{assert.equal(housePostOrigin(new Request('http://localhost:3108/api/house/challenge',{method:'POST',headers:{host:'127.0.0.1:3108',origin:'http://127.0.0.1:3108'}})),'http://127.0.0.1:3108');}finally{if(saved===undefined)delete process.env.BONKERS_SITE_ORIGIN;else process.env.BONKERS_SITE_ORIGIN=saved;}});
