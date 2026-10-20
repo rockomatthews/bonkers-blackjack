@@ -1,5 +1,6 @@
 import {randomBytes,createHash,createCipheriv,createDecipheriv} from 'node:crypto';
 import {createPublicClient,createWalletClient,http,erc20Abi,parseAbi,encodeAbiParameters,encodeDeployData,keccak256,isAddress,verifyMessage,type Address,type Hex} from 'viem';
+import {baseRpcTransport} from './base-rpc';
 import {privateKeyToAccount} from 'viem/accounts';
 import {base} from 'viem/chains';
 import {SignJWT,jwtVerify} from 'jose';
@@ -18,7 +19,7 @@ export function settings(){
  const key=process.env.BONKERS_DEALER_KEY;if(!key||!/^0x[0-9a-fA-F]{64}$/.test(key))throw Error('Dealer is being prepared. Deposits remain closed.');
  const rpc=process.env.BONKERS_RPC_URL??'https://mainnet.base.org';const url=new URL(rpc);if(url.protocol!=='https:'&&!(process.env.BONKERS_LOCAL_STORE==='1'&&!process.env.VERCEL&&['localhost','127.0.0.1'].includes(url.hostname)))throw Error('Invalid Base RPC');
  const house=(process.env.BONKERS_HOUSE_ADDRESS??HOUSE_ADDRESS) as Address;if(!isAddress(house))throw Error('House address is invalid');
- const account=privateKeyToAccount(key as Hex),client=createPublicClient({chain:base,transport:http(rpc,{timeout:12000,retryCount:1}),pollingInterval:500}),wallet=createWalletClient({chain:base,account,transport:http(rpc,{timeout:12000,retryCount:0})});
+ const account=privateKeyToAccount(key as Hex),client=createPublicClient({chain:base,transport:baseRpcTransport(rpc),pollingInterval:500}),wallet=createWalletClient({chain:base,account,transport:baseRpcTransport(rpc)});
  return{key,house,account,client,wallet};
 }
 function secretKey(){return createHash('sha256').update('bonkers-dealer-seeds-v1\0'+settings().key).digest();}
@@ -57,13 +58,14 @@ export async function register(owner:Address,hash:Hex){
 }
 async function send(c:Awaited<ReturnType<typeof checked>>,game:Address,functionName:'offerFor'|'start'|'observe'|'autoStand'|'settle'|'claimFailure',args:readonly unknown[]){const hash=await c.wallet.writeContract({address:game,abi:gameAbi,functionName,args} as Parameters<typeof c.wallet.writeContract>[0]);const receipt=await c.client.waitForTransactionReceipt({hash,timeout:25000});if(receipt.status!=='success')throw Error('Dealer transaction reverted');return hash;}
 // Product rule: each wallet gets its own round/dealer hand. Do not merge wallets into a seven-seat game.
-export async function offer(owner:Address){
- const status=await houseStatus();if(!status.depositsOpen||!status.deployment)throw Error(status.reason);const c=await checked();
- if(await c.client.readContract({address:status.deployment.vault,abi:vaultAbi,functionName:'available',args:[owner]})<5010000n)throw Error('Deposit at least 5.01 USDC before playing.');
+export async function offer(owner:Address,amount='5'){
+ const stake=parseUSDC(amount);if(![1000000n,5000000n].includes(stake))throw Error('Invalid blackjack wager. Choose a 1 or 5 USDC chip.');
+ const status=await houseStatus();if(!status.wagersOpen||!status.deployment)throw Error(status.reason);const c=await checked();
+ if(await c.client.readContract({address:status.deployment.vault,abi:vaultAbi,functionName:'available',args:[owner]})<stake+wagerFee(stake))throw Error('Deposit enough USDC for the selected chip and displayed fee.');
  // Persist the seed before any chain write so retries/cold starts cannot lose it.
  const round=await houseTransaction(async s=>{const previous=s.rounds[owner.toLowerCase()];if(previous){const st=await c.client.readContract({address:status.deployment!.game,abi:gameAbi,functionName:'state',args:[previous.id]});if(st[0]!==5)return previous;}
-  await admit(c,s,75000000n,owner);
-  const seed=random(),r={block:String(await c.client.getBlockNumber()),id:random(),owner,encryptedSeed:seal(seed),commitment:keccak256(encodeAbiParameters([{type:'bytes32'}],[seed])),created:Date.now()};s.rounds[owner.toLowerCase()]=r;return r;});
+  await admit(c,s,stake*15n,owner);
+  const seed=random(),r={block:String(await c.client.getBlockNumber()),id:random(),owner,stake:String(stake),encryptedSeed:seal(seed),commitment:keccak256(encodeAbiParameters([{type:'bytes32'}],[seed])),created:Date.now()};s.rounds[owner.toLowerCase()]=r;return r;});
  await progress(owner,round.id);return readRound(owner);
 }
 async function roundModel(c:Awaited<ReturnType<typeof checked>>,d:NonNullable<HouseData['deployment']>,r:SavedRound){
@@ -76,7 +78,7 @@ export async function progress(owner:Address,id:Hex){
  const c=await checked();return houseTransaction(async s=>{const d=s.deployment,r=s.rounds[owner.toLowerCase()];if(!d||!r||r.id!==id)throw Error('Round unavailable');
   for(let n=0;n<4;n++){
    const data=await roundModel(c,d,r),{st}=data;const now=(await c.client.getBlock()).timestamp;
-   if(st[0]===0){await admit(c,s,75000000n,owner,r.id);const statusPaused=await c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused'});if(statusPaused)throw Error('Deposits are closed');await send(c,d.game,'offerFor',[r.id,r.commitment,r.owner]);break;}
+   if(st[0]===0){await admit(c,s,BigInt(r.stake??INITIAL_WAGER)*15n,owner,r.id);const statusPaused=await c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused'});if(statusPaused)throw Error('Deposits are closed');await send(c,d.game,'offerFor',[r.id,r.commitment,r.owner]);break;}
    if(st[0]===5){r.closed=true;break;}
    if(now>=st[1]){await send(c,d.game,st[0]===3?'autoStand':'claimFailure',[r.id]);continue;}
    if(st[0]===1){if(!st[4].length)break;if(st[4].length!==1||st[4][0].toLowerCase()!==owner.toLowerCase())throw Error('Unexpected player in round');await send(c,d.game,'start',[r.id]);continue;}
@@ -89,7 +91,7 @@ export async function progress(owner:Address,id:Hex){
 }
 export async function readRound(owner:Address):Promise<HouseRound|null>{
  const c=await checked(),saved=await houseTransaction(s=>({d:s.deployment,r:s.rounds[owner.toLowerCase()]}));if(!saved.d||!saved.r)return null;const{d,r}=saved;
- const data=await roundModel(c,d,r),{st}=data;const result:HouseRound={id:r.id,commitment:r.commitment,phase:st[0],deadline:String(st[1]),players:[...st[4]],stakes:st[5].map(String)};
+ const data=await roundModel(c,d,r),{st}=data;const result:HouseRound={id:r.id,commitment:r.commitment,phase:st[0],deadline:String(st[1]),players:[...st[4]],stakes:st[5].map(String),wager:String(st[5][0]??r.stake??INITIAL_WAGER)};
  if(data.model){result.state=data.engine!.publicState(data.model);result.observation=data.engine!.observation(data.model);}
  if(st[0]===5){const finished=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Finished',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:'latest'});const last=finished.at(-1);if(last?.args.failure){result.failure=true;delete result.state;delete result.observation;}else if(last&&data.model){const observed=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Observed',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:'latest'});result.receipt={id:r.id,seed:data.seed!,commitment:r.commitment,entropy:st[3],stakes:st[5].map(String),actions:data.actions!,observations:observed.map(x=>x.args.data!),payouts:data.engine!.payouts(data.model,st[5]).map(String),settlementHash:last.transactionHash!};}}
  return result;
@@ -106,7 +108,7 @@ async function admit(c:Awaited<ReturnType<typeof checked>>,s:HouseData,required:
   else{const st=await c.client.readContract({address:d.game,abi:coinAbi,functionName:'coinState',args:[r.id],blockNumber});phase=st.phase;deadline=st.deadline;joined=phase===2;if(phase===3){r.closed=true;continue;}}
   if(!joined&&((phase===0&&r.created+60000<Date.now())||(phase===1&&deadline<=now)))continue;
   if(r.owner.toLowerCase()===owner.toLowerCase())throw Error('Finish or recover your active round before starting another.');
-  active++;if(!joined)pending+=kind==='blackjack'?75000000n:BigInt((r as SavedCoin).stake);
+  active++;if(!joined)pending+=kind==='blackjack'?BigInt(r.stake??INITIAL_WAGER)*15n:BigInt((r as SavedCoin).stake);
  }}
  if(active>=activeLimit())throw Error('Dealer capacity is full. Please try again after a round settles.');
  if(house<reserved+pending+required)throw Error('House capacity is full. No wager was accepted. Try again after settlement or house funding.');

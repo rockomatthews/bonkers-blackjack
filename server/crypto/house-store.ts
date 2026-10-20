@@ -4,7 +4,7 @@ import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import type {Address,Hex} from 'viem';
 import type {HouseDeployment} from '../../shared/crypto/house';
-export type SavedRound={id:Hex;owner:Address;encryptedSeed:string;commitment:Hex;created:number;block:string;closed?:boolean};
+export type SavedRound={id:Hex;owner:Address;encryptedSeed:string;commitment:Hex;created:number;block:string;stake?:string;closed?:boolean};
 export type SavedCoin=SavedRound&{stake:string;count:1|11|21};
 export type HouseData={coins?:Record<string,SavedCoin>;coinHistory?:Record<string,SavedCoin[]>;deployment?:HouseDeployment;rounds:Record<string,SavedRound>;challenges:Record<string,{owner:Address;expires:number;message?:string;origin?:string}>};
 const g=globalThis as unknown as {housePool?:Pool;houseQueue?:Promise<unknown>;houseInit?:Promise<unknown>};
