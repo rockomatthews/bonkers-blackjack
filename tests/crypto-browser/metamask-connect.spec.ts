@@ -43,3 +43,8 @@ for(const mobile of [false,true])test(`confirmed player cards replace stale stag
  await expect(page.getByRole('button',{name:'Stand',exact:true})).toBeVisible();await expect(seat.locator('.live-card')).toHaveCount(2);await expect(seat.locator('.live-card').first()).toBeVisible();await expect(seat.locator('.placed-chip')).toHaveCount(0);await expect(page.getByText('Staged: $0 across 0 seats',{exact:false})).toBeVisible();
  await page.screenshot({path:`docs/screenshots/confirmed-cards-${mobile?'mobile':'desktop'}.png`});await context.close();
 });
+
+test('quick play approval opens automatically for players and Deal cannot fall back to repeated wallet transactions',async({page})=>{
+ const calls=await mockMetaMask(page);await page.route('**/api/house/status',r=>r.fulfill({json:{house:'0x0000000000000000000000000000000000000001',deployment:{game:'0x0000000000000000000000000000000000000002',vault:'0x0000000000000000000000000000000000000003'},depositsOpen:true,dealerReady:true,wagersOpen:true,freeCollateral:'75000000',reason:'Ready'}}));
+ await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();const approval=page.getByRole('dialog',{name:'Approve quick play'});await expect(approval).toBeVisible();await expect(approval).toContainText('Quick play is automatic');expect(calls).not.toContain('eth_sendTransaction');await approval.getByRole('button',{name:'Close',exact:true}).click();await page.getByTestId('bet-seat-3').click();await page.getByRole('button',{name:'Deal',exact:true}).click();await expect(approval).toBeVisible();expect(calls).not.toContain('eth_sendTransaction');await expect(page.getByTestId('bet-seat-3').locator('.placed-chip')).toHaveCount(1);
+});
