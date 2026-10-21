@@ -56,3 +56,17 @@ test('homepage login stays on the homepage and restores wallet in the chosen gam
  await page.goto('/');await page.getByRole('button',{name:'Connect wallet',exact:true}).click();await page.getByRole('button',{name:'MetaMask',exact:true}).click();await expect(page.getByRole('button',{name:/Cashier/})).toBeVisible();await expect(page).toHaveURL(/\/$/);await expect(page.getByRole('dialog',{name:'Bring money to the table'})).toHaveCount(0);
  await page.getByRole('link',{name:'Play Blackjack',exact:true}).click();await page.getByRole('link',{name:'Enter The Bonkers Room',exact:true}).click();const entry=page.getByRole('dialog',{name:'Bring money to the table'});await expect(entry).toBeVisible();await entry.getByRole('button',{name:'Close',exact:true}).click();await expect(page.locator('.live-dealer .live-card')).toHaveCount(0);await expect(page.getByTestId('bet-seat-3').locator('.live-card')).toHaveCount(0);await expect(page.getByRole('button',{name:'Stand',exact:true})).toHaveCount(0);expect(calls.filter(m=>m==='personal_sign')).toHaveLength(1);
 });
+
+for(const mobile of [false,true])test(`both occupied seats stay visible with distinct totals and automatic turn focus on ${mobile?'mobile':'desktop'}`,async({browser})=>{
+ const context=await browser.newContext(mobile?devices['iPhone 13']:{}),page=await context.newPage();await mockMetaMask(page);
+ const {replayEngine}=await import('../../shared/crypto/engines');const engine=replayEngine(2),seed=('0x'+'12'.repeat(32)) as Hex,entropy=('0x'+'34'.repeat(32)) as Hex,model=engine.initial(engine.shuffle(seed,entropy),1);
+ let phase=3;const rows=()=>[2,3].map(seat=>({id:'0x'+String(seat).repeat(64),commitment:entropy,phase:seat===3?phase:3,deadline:String(Math.floor(Date.now()/1000)+60),players:[account.address],stakes:['2000000'],seat,observedBlock:String(phase===3?100:phase===2?101:102),state:engine.publicState(model),observation:engine.observation(model)}));
+ await page.route('**/api/house/table',r=>r.fulfill({json:rows()}));await page.route('**/api/house/progress',r=>r.fulfill({json:rows()[1]}));
+ await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();
+ for(const seat of [2,3]){const spot=page.getByTestId('bet-seat-'+seat);await expect(spot.locator('.live-card')).toHaveCount(2);await expect(spot.locator('.live-hand-total')).toBeVisible();const sizes=await spot.evaluate(el=>[parseFloat(getComputedStyle(el.querySelector('.live-hand-total')!).fontSize),parseFloat(getComputedStyle(el.querySelector('.live-seat-number')!).fontSize)]);expect(sizes[0]).toBeGreaterThan(sizes[1]*2);}
+ await expect(page.getByRole('button',{name:'Resume / recover round',exact:true})).toHaveCount(0);
+ // Hitting should keep the selected hand focused while its next cards arrive, even if another hand is ready.
+ phase=2;await expect(page.getByTestId('bet-seat-3')).toHaveClass(/focused/);await page.waitForTimeout(2100);await expect(page.getByTestId('bet-seat-3')).toHaveClass(/focused/);
+ phase=4;await expect(page.getByTestId('bet-seat-2')).toHaveClass(/focused/);await expect(page.getByRole('button',{name:'Stand',exact:true})).toBeVisible();
+ await page.screenshot({path:`/tmp/bonkers-two-hands-${mobile?'mobile':'desktop'}.png`});await context.close();
+});

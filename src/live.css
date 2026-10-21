@@ -36,3 +36,18 @@
 .live-round-results{grid-column:1/-1;text-align:center;color:#ffe08a;font-weight:700}.live-round-results p{margin:3px 0}
 
 .lobby-wallet{display:flex;align-items:center;gap:10px}.lobby-wallet .wallet-connection{position:fixed;z-index:30;top:100px;left:50%;transform:translateX(-50%);max-width:90vw}
+
+/* Cards and hand values lead; seat labels and wager amounts are secondary. */
+.live-seat-number{top:-21px;border:0;border-radius:3px;background:#09172bb3;min-width:0;padding:2px 5px;font-size:8px;letter-spacing:1px;color:#c2c9c9}
+.live-seat-hand .live-card{width:clamp(34px,3.2vw,50px);height:clamp(49px,4.6vw,72px)}
+.live-seat-hand .live-card small{font-size:11px}.live-seat-hand .live-card>b{font-size:20px}
+.live-seat-hand .live-card+.live-card{margin-left:-9px}
+.live-seat-hand>.live-hand-total{font-size:20px;line-height:1.1;min-width:32px;padding:4px 9px;background:#fff5d9;color:#0b1730;border-radius:15px;box-shadow:0 2px 7px #0008}
+.live-seat-bet{bottom:-29px;font-size:10px;color:#e4dac1;background:#09152be6;font-weight:500}
+.live-bet-spot.playing{background:#092e3566}.live-bet-spot.playing.focused{z-index:3;background:#092e35d9}
+.live-seat-clock{top:-24px;font-size:10px}.live-seat-pending{display:grid;justify-items:center;gap:6px;font-size:10px;color:#e4dac1}
+.live-recovery{font-size:11px;color:#bac4d5}.live-recovery summary{cursor:pointer}
+@media(max-width:700px){.live-seat-number{font-size:6px;letter-spacing:.3px;top:-17px;padding:2px}.live-seat-hand .live-card{width:27px;height:40px}.live-seat-hand .live-card small{font-size:9px}.live-seat-hand .live-card>b{font-size:14px}.live-seat-hand>.live-hand-total{font-size:16px;min-width:25px;padding:3px 6px}.live-seat-bet{font-size:8px;bottom:-25px}.live-seat-clock{top:-30px;font-size:8px}.live-seat-hands{gap:5px;flex-wrap:wrap;max-width:112px}}
+
+.live-seat-number{white-space:nowrap}.live-dock.in-round{grid-template-columns:160px minmax(0,1fr)}.live-dock.in-round .wager-chips{display:none}
+@media(max-width:700px){.live-dock.in-round{grid-template-columns:1fr}.live-dock.in-round .live-dock-balance{grid-column:1/-1}}
