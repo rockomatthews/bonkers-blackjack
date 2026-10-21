@@ -32,3 +32,5 @@
 @media(max-width:700px){.live-bet-spot{width:48px;height:62px}.live-bet-spot[data-seat="0"]{left:8%;top:44%}.live-bet-spot[data-seat="1"]{left:21%;top:49%}.live-bet-spot[data-seat="2"]{left:35%;top:54%}.live-bet-spot[data-seat="3"]{left:50%;top:56%}.live-bet-spot[data-seat="4"]{left:65%;top:54%}.live-bet-spot[data-seat="5"]{left:79%;top:49%}.live-bet-spot[data-seat="6"]{left:92%;top:44%}.live-seat-hand .live-card{width:23px;height:34px}.live-seat-hand>strong{font-size:8px}.live-seat-prompt{font-size:8px}.live-seat-hands{gap:4px}.live-bet-spot.playing.focused{z-index:3;background:#092e35cc}.live-bet-spot.playing.focused .live-seat-hands{flex-wrap:wrap;min-width:68px}.placed-chip{width:30px;height:27px}.live-actions{gap:6px}.live-actions .live-button{padding:10px 12px}}
 
 .live-seat-clock{position:absolute;right:-4px;top:-10px;background:#ffce29;color:#0b1730;padding:2px 4px;border-radius:5px;font-size:9px;font-weight:800}
+
+.live-round-results{grid-column:1/-1;text-align:center;color:#ffe08a;font-weight:700}.live-round-results p{margin:3px 0}
