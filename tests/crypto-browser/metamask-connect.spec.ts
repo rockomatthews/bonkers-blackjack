@@ -30,3 +30,16 @@ test('cards remain visible and cashier usable while an independent dealer update
 });
 
 test('mobile table taps accumulate the selected chips and Clear removes the whole staged layout',async({browser})=>{const context=await browser.newContext(devices['iPhone 13']);const page=await context.newPage();await mockMetaMask(page);await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();await expect(page.getByRole('button',{name:'Cashier',exact:true})).toBeEnabled();await page.getByTestId('bet-seat-0').click();await page.getByTestId('bet-seat-0').click();await expect(page.getByTestId('bet-seat-0').getByText('$2',{exact:true})).toBeVisible();await page.getByRole('button',{name:'$5 chip',exact:true}).click();await page.getByTestId('bet-seat-6').click();await expect(page.getByTestId('bet-seat-6').getByText('$5',{exact:true}).last()).toBeVisible();await expect(page.getByText('Staged: $7 across 2 seats',{exact:false})).toBeVisible();await page.screenshot({path:'docs/screenshots/multi-seat-staged-390-local.png'});await page.getByRole('button',{name:'Clear',exact:true}).click();await expect(page.getByText('Staged: $0 across 0 seats',{exact:false})).toBeVisible();await context.close();});
+
+for(const mobile of [false,true])test(`confirmed player cards replace stale staged chips after delayed confirmation on ${mobile?'mobile':'desktop'}`,async({browser})=>{
+ const context=await browser.newContext(mobile?devices['iPhone 13']:{}),page=await context.newPage();await mockMetaMask(page);
+ const{replayEngine}=await import('../../shared/crypto/engines');const engine=replayEngine(2),seed=('0x'+'56'.repeat(32)) as Hex,entropy=('0x'+'78'.repeat(32)) as Hex,model=engine.initial(engine.shuffle(seed,entropy),1);
+ const round={id:seed,commitment:entropy,phase:3,deadline:String(Math.floor(Date.now()/1000)+60),players:[account.address],stakes:['2000000'],wager:'2000000',seat:3,observedBlock:'200',actionCount:0,state:engine.publicState(model),observation:engine.observation(model)};
+ let joined=false;await page.route('**/api/house/table',r=>r.fulfill({json:joined?[round]:[]}));
+ await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();await expect(page.getByRole('button',{name:'Cashier',exact:true})).toBeEnabled();
+ const seat=page.getByTestId('bet-seat-3');await seat.click();await seat.click();await expect(seat.locator('.placed-chip')).toHaveCount(2);
+ // The wager reached the chain even though its wallet confirmation did not reach the UI.
+ joined=true;
+ await expect(page.getByRole('button',{name:'Stand',exact:true})).toBeVisible();await expect(seat.locator('.live-card')).toHaveCount(2);await expect(seat.locator('.live-card').first()).toBeVisible();await expect(seat.locator('.placed-chip')).toHaveCount(0);await expect(page.getByText('Staged: $0 across 0 seats',{exact:false})).toBeVisible();
+ await page.screenshot({path:`docs/screenshots/confirmed-cards-${mobile?'mobile':'desktop'}.png`});await context.close();
+});
