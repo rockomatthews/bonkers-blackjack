@@ -1,5 +1,5 @@
 import {randomBytes,createHash,createCipheriv,createDecipheriv} from 'node:crypto';
-import {createPublicClient,createWalletClient,http,erc20Abi,parseAbi,encodeAbiParameters,encodeDeployData,keccak256,isAddress,verifyMessage,type Address,type Hex} from 'viem';
+import {createPublicClient,createWalletClient,erc20Abi,parseAbi,encodeAbiParameters,encodeDeployData,keccak256,isAddress,verifyMessage,type Address,type Hex} from 'viem';
 import {baseRpcTransport} from './base-rpc';
 import {privateKeyToAccount} from 'viem/accounts';
 import {base} from 'viem/chains';
@@ -56,50 +56,68 @@ export async function register(owner:Address,hash:Hex){
  const game=receipt.contractAddress,vault=await c.client.readContract({address:game,abi:gameAbi,functionName:'vault'});
  await houseTransaction(s=>{if(s.deployment&&s.deployment.game.toLowerCase()!==game.toLowerCase())throw Error('A shared house table already exists');s.deployment={game,vault,block:String(receipt.blockNumber),transaction:hash,casinoVersion:1};});return houseStatus();
 }
-async function send(c:Awaited<ReturnType<typeof checked>>,game:Address,functionName:'offerFor'|'start'|'observe'|'autoStand'|'settle'|'claimFailure',args:readonly unknown[]){const hash=await c.wallet.writeContract({address:game,abi:gameAbi,functionName,args} as Parameters<typeof c.wallet.writeContract>[0]);const receipt=await c.client.waitForTransactionReceipt({hash,timeout:25000});if(receipt.status!=='success')throw Error('Dealer transaction reverted');return hash;}
+async function send(c:Awaited<ReturnType<typeof checked>>,game:Address,functionName:'offerFor'|'start'|'observe'|'autoStand'|'settle'|'claimFailure',args:readonly unknown[]){const hash=await c.wallet.writeContract({address:game,abi:gameAbi,functionName,args} as Parameters<typeof c.wallet.writeContract>[0]);const receipt=await c.client.waitForTransactionReceipt({hash,timeout:25000});if(receipt.status!=='success')throw Error('Dealer transaction reverted');return{hash,block:receipt.blockNumber};}
 // Product rule: each wallet gets its own round/dealer hand. Do not merge wallets into a seven-seat game.
-export async function offer(owner:Address,amount='5'){
- const stake=parseUSDC(amount);if(![1000000n,5000000n].includes(stake))throw Error('Invalid blackjack wager. Choose a 1 or 5 USDC chip.');
+const roundKey=(owner:Address,seat:number)=>seat===3?owner.toLowerCase():owner.toLowerCase()+':'+seat;
+export async function offer(owner:Address,amount='5',seat=3){
+ if(!Number.isInteger(seat)||seat<0||seat>6)throw Error('Invalid seat');
+ const stake=parseUSDC(amount);if(stake<1000000n||stake>5000000n||stake%1000000n)throw Error('Invalid blackjack wager. Use whole USDC from 1 to 5 per seat.');
  const status=await houseStatus();if(!status.wagersOpen||!status.deployment)throw Error(status.reason);const c=await checked();
  if(await c.client.readContract({address:status.deployment.vault,abi:vaultAbi,functionName:'available',args:[owner]})<stake+wagerFee(stake))throw Error('Deposit enough USDC for the selected chip and displayed fee.');
  // Persist the seed before any chain write so retries/cold starts cannot lose it.
- const round=await houseTransaction(async s=>{const previous=s.rounds[owner.toLowerCase()];if(previous){const st=await c.client.readContract({address:status.deployment!.game,abi:gameAbi,functionName:'state',args:[previous.id]});if(st[0]!==5)return previous;}
-  await admit(c,s,stake*15n,owner);
-  const seed=random(),r={block:String(await c.client.getBlockNumber()),id:random(),owner,stake:String(stake),encryptedSeed:seal(seed),commitment:keccak256(encodeAbiParameters([{type:'bytes32'}],[seed])),created:Date.now()};s.rounds[owner.toLowerCase()]=r;return r;});
- await progress(owner,round.id);return readRound(owner);
+ const round=await houseTransaction(async s=>{const previous=s.rounds[roundKey(owner,seat)];if(previous){const st=await c.client.readContract({address:status.deployment!.game,abi:gameAbi,functionName:'state',args:[previous.id]});if(st[0]!==5)return previous;}
+  await admit(c,s,stake*15n,owner,undefined,true);
+  const seed=random(),r={block:String(await c.client.getBlockNumber()),id:random(),owner,seat,stake:String(stake),encryptedSeed:seal(seed),commitment:keccak256(encodeAbiParameters([{type:'bytes32'}],[seed])),created:Date.now()};s.rounds[roundKey(owner,seat)]=r;return r;});
+ await progress(owner,round.id);return readRound(owner,seat);
+}
+export async function offerTable(owner:Address,bets:{seat:number;amount:string}[]){
+ if(!Array.isArray(bets)||!bets.length||bets.length>7||new Set(bets.map(b=>b.seat)).size!==bets.length)throw Error('Invalid seat wagers');
+ const wagers=bets.map(b=>{const stake=parseUSDC(b.amount);if(!Number.isInteger(b.seat)||b.seat<0||b.seat>6||stake<1000000n||stake>5000000n||stake%1000000n)throw Error('Invalid seat wager');return{seat:b.seat,stake};});
+ const status=await houseStatus();if(!status.wagersOpen||!status.deployment)throw Error(status.reason);const c=await checked(),required=wagers.reduce((sum,b)=>sum+b.stake+wagerFee(b.stake),0n);
+ if(await c.client.readContract({address:status.deployment.vault,abi:vaultAbi,functionName:'available',args:[owner]})<required)throw Error('Deposit enough USDC for all staged wagers and fees.');
+ const created=await houseTransaction(async s=>{for(const r of Object.values(s.rounds)){if(r.owner.toLowerCase()!==owner.toLowerCase()||r.closed)continue;const st=await c.client.readContract({address:status.deployment!.game,abi:gameAbi,functionName:'state',args:[r.id]});if(st[0]!==5)throw Error('Finish or recover your active hands before dealing another layout.');r.closed=true;}
+  await admit(c,s,wagers.reduce((sum,b)=>sum+b.stake*15n,0n),owner,undefined,true,wagers.length);const block=String(await c.client.getBlockNumber({cacheTime:0}));return wagers.map(({seat,stake})=>{const seed=random(),r:SavedRound={id:random(),owner,seat,stake:String(stake),block,encryptedSeed:seal(seed),commitment:keccak256(encodeAbiParameters([{type:'bytes32'}],[seed])),created:Date.now()};s.rounds[roundKey(owner,seat)]=r;return r;});});
+ for(const r of created)await progress(owner,r.id);return readTable(owner);
 }
 async function roundModel(c:Awaited<ReturnType<typeof checked>>,d:NonNullable<HouseData['deployment']>,r:SavedRound){
- const st=await c.client.readContract({address:d.game,abi:gameAbi,functionName:'state',args:[r.id]});if(st[0]<2)return{st};
- if(st[0]===5){const finished=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Finished',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:'latest'});if(finished.at(-1)?.args.failure)return{st};}
- const events=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Acted',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:'latest'});if(BigInt(events.length)!==st[7])throw Error('Action history incomplete');
- const engine=replayEngine(2),seed=open(r.encryptedSeed),deck=engine.shuffle(seed,st[3]),model=engine.initial(deck,st[4].length),actions=events.map(e=>({seat:e.args.seat!,move:e.args.move!}));for(const a of actions)engine.step(model,deck,a);return{st,seed,model,actions,engine};
+ const head=await c.client.getBlockNumber({cacheTime:0}),blockNumber=r.confirmedBlock&&BigInt(r.confirmedBlock)>head?BigInt(r.confirmedBlock):head;
+ const st=await c.client.readContract({address:d.game,abi:gameAbi,functionName:'state',args:[r.id],blockNumber});if(st[0]<2)return{st,blockNumber};
+ if(st[0]===5){const finished=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Finished',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:blockNumber});if(finished.at(-1)?.args.failure)return{st,blockNumber};}
+ const events=st[7]===0n?[]:await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Acted',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:blockNumber});if(BigInt(events.length)!==st[7])throw Error('Action history incomplete');
+ const engine=replayEngine(2),seed=open(r.encryptedSeed),deck=engine.shuffle(seed,st[3]),model=engine.initial(deck,st[4].length),actions=events.map(e=>({seat:e.args.seat!,move:e.args.move!}));for(const a of actions)engine.step(model,deck,a);return{st,blockNumber,seed,model,actions,engine};
 }
 export async function progress(owner:Address,id:Hex){
- const c=await checked();return houseTransaction(async s=>{const d=s.deployment,r=s.rounds[owner.toLowerCase()];if(!d||!r||r.id!==id)throw Error('Round unavailable');
-  for(let n=0;n<4;n++){
+ const c=await checked();return houseTransaction(async s=>{const d=s.deployment,r=Object.values(s.rounds).find(r=>r.owner.toLowerCase()===owner.toLowerCase()&&r.id===id);if(!d||!r)throw Error('Round unavailable');
+  for(let n=0;n<1;n++){
    const data=await roundModel(c,d,r),{st}=data;const now=(await c.client.getBlock()).timestamp;
-   if(st[0]===0){await admit(c,s,BigInt(r.stake??INITIAL_WAGER)*15n,owner,r.id);const statusPaused=await c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused'});if(statusPaused)throw Error('Deposits are closed');await send(c,d.game,'offerFor',[r.id,r.commitment,r.owner]);break;}
+   if(st[0]===0){await admit(c,s,BigInt(r.stake??INITIAL_WAGER)*15n,owner,r.id,true);const statusPaused=await c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused'});if(statusPaused)throw Error('Deposits are closed');r.confirmedBlock=String((await send(c,d.game,'offerFor',[r.id,r.commitment,r.owner])).block);break;}
    if(st[0]===5){r.closed=true;break;}
-   if(now>=st[1]){await send(c,d.game,st[0]===3?'autoStand':'claimFailure',[r.id]);continue;}
-   if(st[0]===1){if(!st[4].length)break;if(st[4].length!==1||st[4][0].toLowerCase()!==owner.toLowerCase())throw Error('Unexpected player in round');await send(c,d.game,'start',[r.id]);continue;}
-   if(st[0]===2){await send(c,d.game,'observe',[r.id,data.engine!.observation(data.model!)]);continue;}
-   if(st[0]===4){await send(c,d.game,'settle',[r.id,data.seed!]);continue;}
+   if(now>=st[1]){r.confirmedBlock=String((await send(c,d.game,st[0]===3?'autoStand':'claimFailure',[r.id])).block);continue;}
+   if(st[0]===1){if(!st[4].length)break;if(st[4].length!==1||st[4][0].toLowerCase()!==owner.toLowerCase())throw Error('Unexpected player in round');r.confirmedBlock=String((await send(c,d.game,'start',[r.id])).block);continue;}
+   if(st[0]===2){r.confirmedBlock=String((await send(c,d.game,'observe',[r.id,data.engine!.observation(data.model!)])).block);continue;}
+   if(st[0]===4){r.confirmedBlock=String((await send(c,d.game,'settle',[r.id,data.seed!])).block);continue;}
    break;
   }
   if((await c.client.readContract({address:d.game,abi:gameAbi,functionName:'state',args:[r.id]}))[0]===5)r.closed=true;
  });
 }
-export async function readRound(owner:Address):Promise<HouseRound|null>{
- const c=await checked(),saved=await houseTransaction(s=>({d:s.deployment,r:s.rounds[owner.toLowerCase()]}));if(!saved.d||!saved.r)return null;const{d,r}=saved;
- const data=await roundModel(c,d,r),{st}=data;const result:HouseRound={id:r.id,commitment:r.commitment,phase:st[0],deadline:String(st[1]),players:[...st[4]],stakes:st[5].map(String),wager:String(st[5][0]??r.stake??INITIAL_WAGER)};
+export async function readRound(owner:Address,seat=3):Promise<HouseRound|null>{
+ const c=await checked(),saved=await houseTransaction(s=>({d:s.deployment,r:s.rounds[roundKey(owner,seat)]}));if(!saved.d||!saved.r)return null;const{d,r}=saved;if(r.result)return r.result;
+ const data=await roundModel(c,d,r),{st}=data;const result:HouseRound={id:r.id,commitment:r.commitment,phase:st[0],deadline:String(st[1]),players:[...st[4]],stakes:st[5].map(String),wager:String(st[5][0]??r.stake??INITIAL_WAGER),seat:r.seat??3,observedBlock:String(data.blockNumber),actionCount:Number(st[7])};
  if(data.model){result.state=data.engine!.publicState(data.model);result.observation=data.engine!.observation(data.model);}
  if(st[0]===5){const finished=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Finished',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:'latest'});const last=finished.at(-1);if(last?.args.failure){result.failure=true;delete result.state;delete result.observation;}else if(last&&data.model){const observed=await c.client.getContractEvents({address:d.game,abi:gameAbi,eventName:'Observed',args:{id:r.id},fromBlock:BigInt(r.block),toBlock:'latest'});result.receipt={id:r.id,seed:data.seed!,commitment:r.commitment,entropy:st[3],stakes:st[5].map(String),actions:data.actions!,observations:observed.map(x=>x.args.data!),payouts:data.engine!.payouts(data.model,st[5]).map(String),settlementHash:last.transactionHash!};}}
+ if(st[0]===5)await houseTransaction(s=>{const current=s.rounds[roundKey(owner,seat)];if(current?.id===r.id)current.result=result;});
  return result;
+}
+export async function readRoundById(owner:Address,id:Hex){const r=await houseTransaction(s=>Object.values(s.rounds).find(r=>r.owner.toLowerCase()===owner.toLowerCase()&&r.id===id));if(!r)throw Error('Round unavailable');return readRound(owner,r.seat??3);}
+export async function readTable(owner:Address){
+ const records=await houseTransaction(s=>Object.values(s.rounds).filter(r=>r.owner.toLowerCase()===owner.toLowerCase()));
+ return Promise.all(records.map(async r=>{let timer:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([readRound(owner,r.seat??3),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(Error('Hand read timed out')),8000);})]);}catch{return{id:r.id,commitment:r.commitment,seat:r.seat??3,wager:r.stake??String(INITIAL_WAGER),phase:-1,deadline:'0',players:[],stakes:[],unavailable:true} as HouseRound;}finally{clearTimeout(timer);}})).then(rows=>rows.filter((r):r is HouseRound=>!!r));
 }
 
 function activeLimit(){const n=Number(process.env.BONKERS_MAX_ACTIVE_ROUNDS??'10');if(!Number.isInteger(n)||n<1||n>50)throw Error('Invalid dealer capacity');return n;}
 /** Serialize admission across BOTH games. Pending offers reserve capacity before dealer gas is spent. */
-async function admit(c:Awaited<ReturnType<typeof checked>>,s:HouseData,required:bigint,owner:Address,exclude?:Hex){
+async function admit(c:Awaited<ReturnType<typeof checked>>,s:HouseData,required:bigint,owner:Address,exclude?:Hex,allowOwnBlackjack=false,slots=1){
  if(!s.deployment)throw Error('House setup is incomplete');const d=s.deployment,blockNumber=await c.client.getBlockNumber(),now=(await c.client.getBlock({blockNumber})).timestamp;
  const [house,reserved,paused]=await Promise.all([c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'house',blockNumber}),c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'reserved',blockNumber}),c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused',blockNumber})]);if(paused)throw Error('Deposits are closed');let pending=0n,active=0;
  for(const [kind,records]of [['blackjack',s.rounds],['coin',s.coins??{}]] as const){for(const r of Object.values(records)){if(r.closed||r.id===exclude)continue;
@@ -107,10 +125,10 @@ async function admit(c:Awaited<ReturnType<typeof checked>>,s:HouseData,required:
   if(kind==='blackjack'){const st=await c.client.readContract({address:d.game,abi:gameAbi,functionName:'state',args:[r.id],blockNumber});phase=st[0];deadline=st[1];joined=st[4].length>0;if(phase===5){r.closed=true;continue;}}
   else{const st=await c.client.readContract({address:d.game,abi:coinAbi,functionName:'coinState',args:[r.id],blockNumber});phase=st.phase;deadline=st.deadline;joined=phase===2;if(phase===3){r.closed=true;continue;}}
   if(!joined&&((phase===0&&r.created+60000<Date.now())||(phase===1&&deadline<=now)))continue;
-  if(r.owner.toLowerCase()===owner.toLowerCase())throw Error('Finish or recover your active round before starting another.');
+  if(r.owner.toLowerCase()===owner.toLowerCase()&&!(allowOwnBlackjack&&kind==='blackjack'))throw Error('Finish or recover your active round before starting another.');
   active++;if(!joined)pending+=kind==='blackjack'?BigInt(r.stake??INITIAL_WAGER)*15n:BigInt((r as SavedCoin).stake);
  }}
- if(active>=activeLimit())throw Error('Dealer capacity is full. Please try again after a round settles.');
+ if(active+slots>activeLimit())throw Error('Dealer capacity is full. Please try again after a round settles.');
  if(house<reserved+pending+required)throw Error('House capacity is full. No wager was accepted. Try again after settlement or house funding.');
 }
 async function sendCoin(c:Awaited<ReturnType<typeof checked>>,game:Address,functionName:'offerCoin'|'settleCoin'|'claimCoinFailure',args:readonly unknown[]){const hash=await c.wallet.writeContract({address:game,abi:coinAbi,functionName,args} as Parameters<typeof c.wallet.writeContract>[0]);if((await c.client.waitForTransactionReceipt({hash,timeout:25000})).status!=='success')throw Error('Coin transaction reverted');return hash;}
