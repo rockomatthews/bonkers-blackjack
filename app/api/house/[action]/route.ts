@@ -1,4 +1,5 @@
-import {playerRpc} from '../../../../server/crypto/player-rpc';
+import {after} from 'next/server';
+import {playerRpc,advanceGameplay} from '../../../../server/crypto/player-rpc';
 import {walletBalances} from '../../../../server/crypto/balances';
 import {cookies} from 'next/headers';
 import {houseRequestOrigin,housePostOrigin} from '../../../../server/crypto/origin';
@@ -18,7 +19,7 @@ export async function POST(request:Request,{params}:{params:Promise<{action:stri
   if(action==='challenge'){if(typeof b.owner!=='string'||!isAddress(b.owner))throw Error('Invalid wallet');return Response.json(await challenge(b.owner as Address,origin),{headers});}
   if(action==='login'){if(!isAddress(b.owner)||typeof b.nonce!=='string'||!isHex(b.signature))throw Error('Invalid sign-in');const token=await login(b.owner,b.nonce,b.signature,origin);(await cookies()).set('bonkers-wallet',token,{httpOnly:true,sameSite:'strict',secure:new URL(origin).protocol==='https:',path:'/',maxAge:3600});return Response.json({connected:true},{headers});}
   const owner=await requestOwner(origin);
-  if(action==='rpc')return Response.json({result:await playerRpc(owner,b.method,b.params??[])},{headers});
+  if(action==='rpc'){const result=await playerRpc(owner,b.method,b.params??[]);if(b.method==='eth_sendRawTransaction'&&typeof result==='string'&&/^0x[0-9a-fA-F]{64}$/.test(result))after(()=>advanceGameplay(owner,b.params[0] as Hex,result as Hex));return Response.json({result},{headers});}
   if(action==='register'){if(typeof b.hash!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(b.hash))throw Error('Invalid deployment receipt');return Response.json(await register(owner,b.hash as Hex),{headers});}
   if(action==='coin-offer'){if(typeof b.amount!=='string'||![1,11,21].includes(b.count))throw Error('Invalid coin terms');return Response.json(await offerCoin(owner,b.amount,b.count),{headers});}
   if(action==='coin-progress'){if(typeof b.id!=='string'||!/^0x[0-9a-fA-F]{64}$/.test(b.id))throw Error('Invalid round');await progressCoin(owner,b.id);return Response.json(await readCoin(owner),{headers});}

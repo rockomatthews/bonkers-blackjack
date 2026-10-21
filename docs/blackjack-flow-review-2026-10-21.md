@@ -6,7 +6,7 @@ Reviewed 2026-10-21. Venice was consulted for an independent engineering checkli
 
 The failed offer in the supplied screenshot was round `0xf92b3a1cdf644beac1e8bce805e2a74669cb30eb4f0f86d6a13681f46d8099c0`, offered at Base block 52887322. A historical `eth_call` of `joinFor` at block 52887323 succeeded through Base RPC with the actual authorized session address. Current reads confirmed the same owner, the full 40-USDC allowance, and the full 0.00002-ETH gas allocation still present. The offer subsequently expired without a joined player. This points to the injected wallet RPC preparation/broadcast path, rather than an accepted wager with hidden cards. No financial transactions were submitted during this investigation.
 
-The browser now signs gameplay locally and uses an authenticated Base RPC endpoint for reads, simulation, gas estimation, receipts, and broadcasting. Signed broadcasts are limited to the deployed game, chain 8453, zero native value, `joinFor`/`actFor`, the authenticated owner, and a matching unexpired on-chain session. Wallet/admin RPC methods are rejected. No private key is transmitted to the endpoint.
+The browser now signs gameplay locally and uses an authenticated Base RPC endpoint for reads, simulation, gas estimation, receipts, and broadcasting. Signed broadcasts are limited to the deployed game, chain 8453, zero native value, `joinFor`/`actFor`, the authenticated owner, and a matching unexpired on-chain session. Wallet/admin RPC methods are rejected. No private key is transmitted to the endpoint. Accepted gameplay broadcasts also schedule server-side dealer advancement after their receipt, so the next browser poll is not required to start, observe, or settle the hand.
 
 ## Flow references
 
