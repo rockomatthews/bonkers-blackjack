@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Pilot from '../app/crypto-pilot/ui';
 import Image from 'next/image';
 import {houseStatus} from '../server/crypto/house';
 import {formatUSDC} from '../shared/crypto/money';
@@ -6,7 +7,7 @@ import './live.css';
 export default async function LiveLobby(){
  const house=await houseStatus();
  return <main className="casino-home">
-  <header className="casino-header"><Link href="/" className="casino-home-logo"><Image src="/bonkers-logo.png" alt="Bonkers" width={1280} height={1280} sizes="120px"/></Link><nav aria-label="Main navigation"><a href="#games">Games</a><Link className="live-button" href="/live/bonkers-room?connect=1">Connect wallet</Link></nav></header>
+  <header className="casino-header"><Link href="/" className="casino-home-logo"><Image src="/bonkers-logo.png" alt="Bonkers" width={1280} height={1280} sizes="120px"/></Link><nav aria-label="Main navigation"><a href="#games">Games</a><Pilot game="lobby"/></nav></header>
   <section className="casino-hero"><div><p className="live-eyebrow">YOUR WALLET. YOUR CALL.</p><h1>A little mad.<br/><span>All Bonkers.</span></h1><p>One balance. Two ways to go Bonkers.<br/>Blackjack or a straight-up heads-or-tails showdown.</p><a href="#games" className="live-button">Choose your game</a><div className="casino-status"><i className={house.depositsOpen?'open':''}/>{house.depositsOpen?'House open · USDC on Base':'Deposits closed · waiting for the house'}</div></div><div className="casino-hero-art casino-logo-art"><Image src="/bonkers-logo.png" alt="Bonkers mascot and logo" width={1280} height={1280} sizes="(max-width: 750px) 350px, 550px" priority/></div></section>
   <section className="casino-games" id="games" aria-labelledby="games-title"><div className="casino-section-title"><div><p className="live-eyebrow">PICK YOUR GAME</p><h2 id="games-title">The floor is yours.</h2></div><span>Native USDC · Base network</span></div><div className="casino-game-grid">
    <Link className="casino-game-card blackjack-game-card" href="/blackjack" aria-label="Play Blackjack"><div className="casino-card-art" aria-hidden="true"><span className="mini-card">A<small>♠</small></span><span className="mini-card red">K<small>♥</small></span><b>21</b></div><div className="casino-game-copy"><span className="casino-category">THE CLASSIC. A LITTLE BONKERS.</span><h3>Blackjack</h3><p>Your own table. Your own dealer hand. Hit, stand, split, double—or take the sensible way out.</p><div className="casino-game-details"><span>$1 and $5 chips</span><span>Blackjack pays 3:2</span></div><strong>Choose a blackjack room</strong></div></Link>

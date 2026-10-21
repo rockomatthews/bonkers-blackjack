@@ -34,3 +34,5 @@
 .live-seat-clock{position:absolute;right:-4px;top:-10px;background:#ffce29;color:#0b1730;padding:2px 4px;border-radius:5px;font-size:9px;font-weight:800}
 
 .live-round-results{grid-column:1/-1;text-align:center;color:#ffe08a;font-weight:700}.live-round-results p{margin:3px 0}
+
+.lobby-wallet{display:flex;align-items:center;gap:10px}.lobby-wallet .wallet-connection{position:fixed;z-index:30;top:100px;left:50%;transform:translateX(-50%);max-width:90vw}

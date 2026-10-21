@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Pilot from '../app/crypto-pilot/ui';
 import Link from 'next/link';
 import {ROOMS,liveRoomOpen} from '../shared/rooms';
 import './live.css';
@@ -6,7 +7,7 @@ import {houseStatus} from '../server/crypto/house';
 export default async function BlackjackLobby(){
  const status=await houseStatus();
  return <main className="live-home">
-  <header className="live-header"><Link href="/" className="live-brand"><Image src="/bonkers-blackjack-logo.png" alt="Bonkers Blackjack" width={80} height={80}/><span>BONKERS<small>BLACKJACK</small></span></Link><span className="live-network">USDC · BASE</span><Link href="/live/bonkers-room?connect=1" className="live-button">Connect wallet</Link></header>
+  <header className="live-header"><Link href="/" className="live-brand"><Image src="/bonkers-blackjack-logo.png" alt="Bonkers Blackjack" width={80} height={80}/><span>BONKERS<small>BLACKJACK</small></span></Link><span className="live-network">USDC · BASE</span><Pilot game="lobby"/></header>
   <section className="live-intro"><div><p className="live-eyebrow">ONE HOUSE. YOUR WALLET.</p><h1>A little mad.<br/><span>All blackjack.</span></h1><p>Pick your room. Bring your wallet. Play with native USDC on Base.</p><p className="live-intro-note">{status.depositsOpen?'Deposits are open. Connect your wallet to deposit and play.':'Deposits are closed until the house wallet funds the reserve and explicitly opens them.'} Wagers start at 1 USDC.</p>{!process.env.VERCEL&&!status.dealer&&<p><a className="live-button quiet" href="https://bonkers-blackjack.vercel.app/">Open hosted site</a></p>}</div><Image src="/bonkers-blackjack-logo.png" alt="Bonkers Blackjack grinning dog logo" width={450} height={450} priority/></section>
   <section className="live-rooms" aria-label="Choose a room">{Object.entries(ROOMS).map(([id,room])=>{
    const open=liveRoomOpen(id);
