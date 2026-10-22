@@ -1,4 +1,5 @@
 'use client';
+import {walletRequestHeaders} from '../shared/crypto/wallet-request';
 import {useEffect,useState} from 'react';
 import {erc20Abi,parseAbi,type Hex,type Address} from 'viem';
 import {BASE_USDC} from '../shared/crypto/assets';
@@ -9,7 +10,7 @@ const fundingAbi=parseAbi(['function fundHouse(uint256)']);
 type Migration={pending?:HouseDeployment;monitorReady:boolean;retired:(HouseDeployment&{available:string})[]};
 export default function SessionUpgrade({status,owner,send,deploy,refresh,retiredOnly=false}:{status:HouseStatus;owner?:Address;send:(args:Record<string,unknown>)=>Promise<Hex>;deploy?:()=>Promise<Hex>;refresh:()=>Promise<void>;retiredOnly?:boolean}){
  const[data,setData]=useState<Migration>(),[amount,setAmount]=useState('75'),[busy,setBusy]=useState(''),[message,setMessage]=useState('');
- async function api<T>(action:string,body?:unknown){const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error??'Request failed');return b as T;}
+ async function api<T>(action:string,body?:unknown){const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:walletRequestHeaders(!!body),body:body?JSON.stringify(body):undefined,cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error??'Request failed');return b as T;}
  async function load(){setData(await api<Migration>('table-migration'));}
  useEffect(()=>{void load().catch(e=>setMessage(e.message));},[status.deployment?.game]);
  async function run(label:string,job:()=>Promise<void>){if(busy)return;setBusy(label);try{await job();await load();await refresh();setMessage('Completed.');}catch(e){setMessage(e instanceof Error?e.message:'Request failed');}finally{setBusy('');}}

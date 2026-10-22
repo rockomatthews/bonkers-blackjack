@@ -70,3 +70,30 @@ for(const mobile of [false,true])test(`both occupied seats stay visible with dis
  phase=4;await expect(page.getByTestId('bet-seat-2')).toHaveClass(/focused/);await expect(page.getByRole('button',{name:'Stand',exact:true})).toBeVisible();
  await page.screenshot({path:`/tmp/bonkers-two-hands-${mobile?'mobile':'desktop'}.png`});await context.close();
 });
+
+test('house and player logins remain isolated in tabs sharing browser cookies',async({context})=>{
+ const {generatePrivateKey,privateKeyToAccount}=await import('viem/accounts');
+ const accounts=[privateKeyToAccount(generatePrivateKey()),privateKeyToAccount(generatePrivateKey())];
+ const origin='http://127.0.0.1:3108';
+ for(const a of accounts){
+  const c=await context.request.post('/api/house/challenge',{headers:{origin},data:{owner:a.address}});expect(c.status()).toBe(200);
+  const challenge=await c.json(),signature=await a.signMessage({message:challenge.message});
+  const login=await context.request.post('/api/house/login',{headers:{origin},data:{owner:a.address,nonce:challenge.nonce,signature}});expect(login.status()).toBe(200);
+ }
+ // The second login replaced the legacy cookie, but each tab selects its own verified cookie.
+ for(const a of accounts){
+  const result=await context.request.get('/api/house/session',{headers:{'X-Bonkers-Wallet':a.address}});
+  expect(result.status()).toBe(200);expect((await result.json()).owner.toLowerCase()).toBe(a.address.toLowerCase());
+ }
+ const stranger=privateKeyToAccount(generatePrivateKey());
+ expect((await context.request.get('/api/house/session',{headers:{'X-Bonkers-Wallet':stranger.address}})).status()).toBe(401);
+ const cookies=await context.cookies();expect(cookies.filter(c=>c.name.startsWith('bonkers-wallet-'))).toHaveLength(2);
+ expect(cookies.filter(c=>c.name.startsWith('bonkers-wallet')).every(c=>c.httpOnly&&c.sameSite==='Strict')).toBe(true);
+});
+
+test('the connected wallet selector accompanies cashier and gameplay requests',async({page})=>{
+ await mockMetaMask(page);let selected:string|undefined;
+ await page.route('**/api/house/balances',r=>{selected=r.request().headers()['x-bonkers-wallet'];return r.fulfill({json:{account:account.address,chainId:8453,token:BASE_USDC,wallet:'42000000',available:'10000000',locked:'0',house:'75000000',reserved:'0',fees:'0',assets:'85000000',accounted:'85000000',block:'1'}});});
+ await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();
+ await expect.poll(()=>selected).toBe(account.address.toLowerCase());
+});

@@ -1,4 +1,5 @@
 'use client';
+import {walletRequestHeaders} from '../shared/crypto/wallet-request';
 import {useEffect,useRef,useState} from 'react';
 import {generatePrivateKey,privateKeyToAccount,type PrivateKeyAccount} from 'viem/accounts';
 import {hashTypedData,verifyTypedData,type Address,type Hex} from 'viem';
@@ -16,7 +17,7 @@ type Props={owner?:Address;authenticated:boolean;status:HouseStatus;available:st
 const money=(value:bigint)=>formatUSDC(value).replace(/(\.\d{2})0+$/,'$1');
 const empty=()=>Array.from({length:7},()=>[] as number[]);
 const random=()=>`0x${Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('')}` as Hex;
-async function request<T>(action:string,body?:unknown):Promise<T>{const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000),cache:'no-store'});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error??'Table unavailable'),{status:r.status});return data;}
+async function request<T>(action:string,body?:unknown):Promise<T>{const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:walletRequestHeaders(!!body),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000),cache:'no-store'});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error??'Table unavailable'),{status:r.status});return data;}
 export default function SessionTable({owner,authenticated,status,available,onConnect,onCashier,send,signClose,refresh}:Props){
  const game=status.deployment!.game,dealer=status.dealer!;
  const [table,setTable]=useState<FastSnapshot|null>(null),[staged,setStaged]=useState(empty),[last,setLast]=useState(empty),[chip,setChip]=useState(1),[focus,setFocus]=useState(3),[busy,setBusy]=useState(''),[message,setMessage]=useState(''),[entry,setEntry]=useState(false),[amount,setAmount]=useState('10');

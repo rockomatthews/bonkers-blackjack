@@ -1,4 +1,5 @@
 'use client';
+import {walletRequestHeaders} from '../shared/crypto/wallet-request';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import Coin3D from './Coin3D';
@@ -10,7 +11,7 @@ import type {GameWalletBalances} from '../shared/crypto/ui-types';
 type CoinData={round:CoinRound|null;history:CoinRound[]};
 const fmt=(v:string|bigint)=>formatUSDC(BigInt(v)).replace(/(\.\d{2})0+$/,'$1');
 const random=()=>`0x${Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('')}` as Hex;
-async function api(action:string,body?:unknown):Promise<CoinData>{const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error??'Toin Coss unavailable');return d;}
+async function api(action:string,body?:unknown):Promise<CoinData>{const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:walletRequestHeaders(!!body),body:body?JSON.stringify(body):undefined,cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error??'Toin Coss unavailable');return d;}
 export default function ToinCoss({owner,status,balance,busy,authenticated,onConnect,onCashier,onLedger,run,send,refresh}:{owner?:Address;status:HouseStatus;balance:GameWalletBalances;busy:string;authenticated:boolean;onConnect:()=>void;onCashier:()=>void;onLedger?:()=>void;run:(label:string,fn:()=>Promise<void>)=>Promise<void>;send:(args:Record<string,unknown>)=>Promise<Hex>;refresh:()=>Promise<void>}){
  const[amount,setAmount]=useState('5'),[count,setCount]=useState<TossCount>(1),[choice,setChoice]=useState<0|1>(0),[data,setData]=useState<CoinData>({round:null,history:[]}),[notice,setNotice]=useState('Connect your wallet. Your existing Bonkers player balance works here.'),[working,setWorking]=useState(false);
  function accept(d:CoinData){for(const r of [...d.history,...(d.round?[d.round]:[])])if(r.receipt)verifyCoinReceipt(r.receipt);setData(d);}
