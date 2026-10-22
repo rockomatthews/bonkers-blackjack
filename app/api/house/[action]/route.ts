@@ -28,7 +28,7 @@ export async function POST(request:Request,{params}:{params:Promise<{action:stri
   if(action==='challenge'){if(typeof b.owner!=='string'||!isAddress(b.owner))throw Error('Invalid wallet');return Response.json(await challenge(b.owner as Address,origin),{headers});}
   if(action==='login'){if(!isAddress(b.owner)||typeof b.nonce!=='string'||!isHex(b.signature))throw Error('Invalid sign-in');const token=await login(b.owner,b.nonce,b.signature,origin);const jar=await cookies(),options={httpOnly:true,sameSite:'strict' as const,secure:new URL(origin).protocol==='https:',path:'/',maxAge:3600};jar.set('bonkers-wallet',token,options);jar.set('bonkers-wallet-'+b.owner.toLowerCase(),token,options);return Response.json({connected:true},{headers});}
   const owner=await requestOwner(origin,request);
-  if(action==='table-register')return Response.json(await registerTable(owner),{headers});
+  if(action==='table-register'){if(b.hash!==undefined&&(!isHex(b.hash)||b.hash.length!==66))throw Error('Invalid table opening receipt');return Response.json(await registerTable(owner,b.hash),{headers});}
   if(action==='table-session-offer')return Response.json(await offerTableSession(owner,b.bets),{headers});
   if(action==='table-session-bet'||action==='table-session-act'||action==='table-session-close'){
    if(!isHex(b.id)||b.id.length!==66||!isHex(b.signature)||b.signature.length!==132)throw Error('Invalid signed table request');

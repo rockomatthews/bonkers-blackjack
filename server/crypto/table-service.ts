@@ -1,5 +1,5 @@
 import {randomBytes} from 'node:crypto';
-import {encodeAbiParameters,encodeDeployData,hashTypedData,keccak256,verifyTypedData,type Address,type Hex} from 'viem';
+import {encodeAbiParameters,encodeDeployData,parseEventLogs,hashTypedData,keccak256,verifyTypedData,type Address,type Hex} from 'viem';
 import {checked,settings,seal,open,houseStatus} from './house';
 import {houseTransaction} from './house-store';
 import {tableAbi,tableVaultAbi} from '../../shared/crypto/table-abi';
@@ -13,20 +13,24 @@ import {typedOffer,typedBet,typedAction,typedAck,typedView,typedClose,tableEntro
 import type {HouseDeployment} from '../../shared/crypto/house';
 import artifact from '../../shared/crypto/table-artifact.json';
 const random=()=>`0x${randomBytes(32).toString('hex')}` as Hex;
-export type SavedTable=FastSnapshot&{encryptedSeeds?:string[];settlementRaw?:Hex;lastChainRead?:number;lastAnswered?:string;};
+export type SavedTable=FastSnapshot&{encryptedSeeds?:string[];settlementRaw?:Hex;lastChainRead?:number;chainBlock?:string;lastAnswered?:string;};
 function own(t:SavedTable|undefined,owner:Address):asserts t is SavedTable{if(!t||t.owner.toLowerCase()!==owner.toLowerCase())throw Error('Invalid table owner');}
-function snapshot(t:SavedTable):FastSnapshot{const{encryptedSeeds,settlementRaw,lastChainRead,lastAnswered,...safe}=t;void encryptedSeeds;void settlementRaw;void lastChainRead;void lastAnswered;return structuredClone(safe);}
+function snapshot(t:SavedTable):FastSnapshot{const{encryptedSeeds,settlementRaw,lastChainRead,lastAnswered,chainBlock,...safe}=t;void encryptedSeeds;void settlementRaw;void lastChainRead;void lastAnswered;void chainBlock;return structuredClone(safe);}
 function active(d:HouseDeployment|undefined):asserts d is HouseDeployment {if(d?.casinoVersion!==2)throw Error('Session tables are not activated');}
 function model(t:SavedTable,at:number){const seed=open(t.encryptedSeeds![at]),deck=shuffle(seed,tableEntropy(t.id,t.offer!.nonce,t.offer!.seats[at],t.entropy!)),state=initial(deck,1);for(const move of t.hands[at].moves)step(state,deck,{seat:0,move});return{seed,deck,state};}
 async function view(t:SavedTable,at:number,state:CryptoState,game:Address){const h=t.hands[at];h.state=publicState(state);h.observation=observation(state);h.viewSignature=await settings().account.signTypedData(typedView(game,hashTypedData(typedBet(game,t.offer!,t.entropy!)),h));if(state.done){h.proof={seed:open(t.encryptedSeeds![at]),moves:h.moves,observations:h.observations,signatures:h.signatures,acknowledgements:h.acknowledgements};}}
 function cost(t:SavedTable){return t.hands.reduce((sum,h)=>sum+BigInt(h.stake)+h.moves.reduce((added,m)=>added+extraStake(m,BigInt(h.stake)),0n)+wagerFee(BigInt(h.stake)),0n);}
-export async function registerTable(owner:Address){
- const c=await checked(),d=await houseTransaction(s=>s.deployment);active(d);const id=await c.client.readContract({address:d.game,abi:tableAbi,functionName:'ownerTable',args:[owner]});
+export async function registerTable(owner:Address,hash?:Hex){
+ const c=await checked(),d=await houseTransaction(s=>s.deployment);active(d);
+ const receipt=hash?await c.client.getTransactionReceipt({hash}):undefined;
+ if(receipt&&(receipt.status!=='success'||!parseEventLogs({abi:tableAbi,eventName:'TableOpened',logs:receipt.logs}).some(log=>log.address.toLowerCase()===d.game.toLowerCase()&&log.args.owner?.toLowerCase()===owner.toLowerCase())))throw Error('Invalid table opening receipt');
+ const blockNumber=receipt?.blockNumber??await c.client.getBlockNumber({cacheTime:0});
+ const id=await c.client.readContract({address:d.game,abi:tableAbi,functionName:'ownerTable',args:[owner],blockNumber});
  if(id===`0x${'0'.repeat(64)}`)return null;
- const[t,v]=await Promise.all([c.client.readContract({address:d.game,abi:tableAbi,functionName:'tableState',args:[id]}),c.client.readContract({address:d.vault,abi:tableVaultAbi,functionName:'tables',args:[id]})]);
- if(t[0].toLowerCase()!==owner.toLowerCase()||v[0].toLowerCase()!==owner.toLowerCase())throw Error('Invalid table owner');
- return houseTransaction(s=>{s.fastTables??={};let saved=s.fastTables[id];if(!saved)saved=s.fastTables[id]={id,owner,key:t[1],balance:String(v[1]),collateral:String(v[2]),limit:String(v[3]),expires:Number(t[3]),nonce:String(t[4]),closed:t[9],lastActivity:Date.now(),hands:[],settled:true};
-  saved.closeAt=Number(t[5]);saved.disputeAt=Number(t[6]);saved.closed=t[9];saved.lastChainRead=Date.now();
+ const[t,v]=await Promise.all([c.client.readContract({address:d.game,abi:tableAbi,functionName:'tableState',args:[id],blockNumber}),c.client.readContract({address:d.vault,abi:tableVaultAbi,functionName:'tables',args:[id],blockNumber})]);
+ if(t[0].toLowerCase()!==owner.toLowerCase()||v[0].toLowerCase()!==owner.toLowerCase())throw Error('Table ownership is still syncing. Retrying automatically.');
+ return houseTransaction(s=>{s.fastTables??={};let saved=s.fastTables[id];if(saved?.chainBlock&&BigInt(saved.chainBlock)>blockNumber)return snapshot(saved);if(!saved)saved=s.fastTables[id]={id,owner,key:t[1],balance:String(v[1]),collateral:String(v[2]),limit:String(v[3]),expires:Number(t[3]),nonce:String(t[4]),closed:t[9],lastActivity:Date.now(),hands:[],settled:true};
+  saved.chainBlock=String(blockNumber);saved.closeAt=Number(t[5]);saved.disputeAt=Number(t[6]);saved.closed=t[9];saved.lastChainRead=Date.now();
   // Only replace chain accounting after our completed batch actually advanced its nonce.
   if(!saved.offer||t[4]>BigInt(saved.offer.nonce)||saved.closed){saved.balance=String(v[1]);saved.collateral=String(v[2]);saved.nonce=String(t[4]);saved.settled=true;saved.settlementRaw=undefined;saved.error=undefined;}
   return snapshot(saved);});
@@ -35,6 +39,7 @@ export async function readTableSession(owner:Address){return houseTransaction(s=
 export async function offerTableSession(owner:Address,bets:{seat:number;amount:string}[]){
  if(!Array.isArray(bets)||!bets.length||bets.length>7||new Set(bets.map(b=>b.seat)).size!==bets.length)throw Error('Invalid seat wagers');
  const wagers=bets.map(b=>{const stake=parseUSDC(b.amount);if(!Number.isInteger(b.seat)||b.seat<0||b.seat>6||stake<1000000n||stake>5000000n||stake%1000000n)throw Error('Invalid seat wager');return{seat:b.seat,stake};}).sort((a,b)=>a.seat-b.seat);
+ const registered=await houseTransaction(s=>Object.values(s.fastTables??{}).some(t=>t.owner.toLowerCase()===owner.toLowerCase()&&!t.closed));if(!registered)await registerTable(owner);
  const c=settings();return houseTransaction(async s=>{const d=s.deployment;active(d);const t=Object.values(s.fastTables??{}).find(t=>t.owner.toLowerCase()===owner.toLowerCase()&&!t.closed);own(t,owner);
   if(t.closeAt||t.disputeAt||Date.now()>t.expires*1000||Date.now()-t.lastActivity>15*60*1000)throw Error('Table session expired. Leave the table and return to play.');
   if(t.offer&&(!t.settled||!t.entropy))return snapshot(t); // Never create a second shuffle for the same nonce.

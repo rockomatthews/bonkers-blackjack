@@ -13,6 +13,7 @@ export const tableAbi=parseAbi([
  'function disputeTableRound(Offer offer,bytes32 entropy,bytes betSignature)',
  'function answerTableDispute(Offer offer,bytes32 entropy,bytes betSignature,Proof[] proofs)',
  'function finalizeTableDispute(bytes32 id)',
+ 'event TableOpened(bytes32 indexed id,address indexed owner,address key,uint128 amount,uint128 limit,uint64 expires)',
  'event TableDisputed(bytes32 indexed id,uint64 nonce,uint64 deadline,bytes32 entropy,bytes betSignature)',
  'event TableSettled(bytes32 indexed id,uint64 indexed nonce,uint128 spent,uint128 payout,uint128 fee)',
 ]);

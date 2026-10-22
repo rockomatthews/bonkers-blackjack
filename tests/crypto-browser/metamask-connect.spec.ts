@@ -110,3 +110,11 @@ test('cashier separates deposited funds and blocks deposits above wallet USDC be
  await page.route('**/api/house/rpc',r=>r.fulfill({json:{result:'0x'+(1000000n).toString(16).padStart(64,'0')}}));
  await cashier.getByRole('button',{name:'Approve & deposit USDC',exact:true}).click();await expect(cashier).toContainText('Only 1.00 USDC is left');expect(calls).not.toContain('eth_sendTransaction');
 });
+
+test('a saved house wallet never replaces the API identity when its provider now exposes the player',async({page})=>{
+ await mockMetaMask(page);const stale='0x0000000000000000000000000000000000000011',selected:string[]=[];
+ await page.addInitScript(({stale,player})=>{sessionStorage.setItem('bonkers-home-wallet',JSON.stringify({id:'metamask-local',name:'MetaMask',owner:stale}));sessionStorage.setItem('bonkers-api-wallet',player);},{stale,player:account.address.toLowerCase()});
+ await page.route('**/api/house/session',r=>{selected.push(r.request().headers()['x-bonkers-wallet']);return r.fulfill({json:{owner:account.address}});});
+ await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();await expect(page.locator('.live-table-header').getByRole('button',{name:'Cashier',exact:true})).toBeEnabled();
+ expect(selected).not.toContain(stale);expect(selected).toContain(account.address.toLowerCase());
+});
