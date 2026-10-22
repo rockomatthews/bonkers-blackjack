@@ -97,3 +97,16 @@ test('the connected wallet selector accompanies cashier and gameplay requests',a
  await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();
  await expect.poll(()=>selected).toBe(account.address.toLowerCase());
 });
+
+test('cashier separates deposited funds and blocks deposits above wallet USDC before opening a wallet',async({page})=>{
+ const calls=await mockMetaMask(page);
+ await page.route('**/api/house/status',r=>r.fulfill({json:{house:account.address,deployment:{game:'0x0000000000000000000000000000000000000002',vault:'0x0000000000000000000000000000000000000003'},depositsOpen:true,dealerReady:true,wagersOpen:true,reason:'Ready'}}));
+ await page.route('**/api/house/balances',r=>r.fulfill({json:{account:account.address,chainId:8453,token:BASE_USDC,wallet:'2746636',available:'8000000',locked:'0',house:'100000000',reserved:'0',fees:'0',assets:'108000000',accounted:'108000000',block:'1'}}));
+ await page.goto('/live/bonkers-room?connect=1');await page.getByRole('button',{name:'MetaMask',exact:true}).click();await page.locator('.live-table-header').getByRole('button',{name:'Cashier',exact:true}).click();
+ const cashier=page.getByRole('dialog',{name:'USDC cashier'});await cashier.getByLabel('Deposit amount (USDC)',{exact:true}).fill('4');
+ await expect(cashier.getByRole('button',{name:'Approve & deposit USDC',exact:true})).toBeDisabled();await expect(cashier).toContainText('Only 2.746636 USDC is left');await expect(cashier).toContainText('8.00 USDC is already deposited and ready to play.');expect(calls).not.toContain('eth_sendTransaction');
+ await cashier.getByRole('button',{name:'Use wallet maximum',exact:true}).click();await expect(cashier.getByLabel('Deposit amount (USDC)',{exact:true})).toHaveValue('2.746636');await expect(cashier.getByRole('button',{name:'Approve & deposit USDC',exact:true})).toBeEnabled();
+ // An outside transfer after the displayed balance was read must also stop approval.
+ await page.route('**/api/house/rpc',r=>r.fulfill({json:{result:'0x'+(1000000n).toString(16).padStart(64,'0')}}));
+ await cashier.getByRole('button',{name:'Approve & deposit USDC',exact:true}).click();await expect(cashier).toContainText('Only 1.00 USDC is left');expect(calls).not.toContain('eth_sendTransaction');
+});
