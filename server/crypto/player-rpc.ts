@@ -27,6 +27,6 @@ export async function playerRpc(owner:Address,method:unknown,params:unknown){
 export async function advanceGameplay(owner:Address,raw:Hex,hash:Hex){
  try{const c=await checked(),tx=parseTransaction(raw),decoded=decodeFunctionData({abi:gameAbi,data:tx.data!}),id=decoded.args![0] as Hex;
   const receipt=await c.client.waitForTransactionReceipt({hash,timeout:25000});if(receipt.status!=='success')return;
-  for(let i=0;i<3;i++){await progress(owner,id);const round=await readRoundById(owner,id);if(!round||round.phase===3||round.phase===5||round.unavailable)break;}
+  for(let i=0;i<1;i++){await progress(owner,id);const round=await readRoundById(owner,id);if(!round||round.phase===3||round.phase===5||round.unavailable)break;}
  }catch(e){console.error('bonkers-dealer-advance',{error:e instanceof Error?e.name:'UnknownError'});}
 }

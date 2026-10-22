@@ -5,5 +5,11 @@
     "deploymentEnabled": {
       "codex/crypto-private": false
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/table-maintenance",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

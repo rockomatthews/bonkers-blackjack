@@ -23,6 +23,8 @@ contract PlayerVault is EIP712, ReentrancyGuard {
     mapping(address=>uint256) public withdrawalNonces;
     mapping(bytes32=>Exposure) public exposures;
     mapping(bytes32=>bool) public coinWagers;
+    struct TableEscrow {address player;uint128 balance;uint128 collateral;uint128 limit;bool closed;}
+    mapping(bytes32=>TableEscrow) public tables;
     struct Exposure { address player; uint128 initial; uint128 locked; uint128 maximum; uint128 fee; bool closed; }
     bytes32 public constant WITHDRAW_TYPEHASH=keccak256("Withdrawal(address owner,address recipient,uint256 amount,uint256 nonce,uint256 deadline)");
     event Deposited(address indexed owner,uint256 amount);
@@ -119,4 +121,26 @@ contract PlayerVault is EIP712, ReentrancyGuard {
         emit Settled(id,e.player,payout,operatorFailure);
     }
     function accountedAssets() external view returns(uint256){return house+playerAvailable+playerLocked;}
+    // Used only by the separately deployed session-game version. Existing deployments are immutable.
+    function openTable(bytes32 id,address owner,uint128 amount,uint128 limit) external onlyGame {
+        require(!paused&&tables[id].player==address(0)&&amount>=1e6&&amount<=100e6,"invalid table");
+        require(limit>=1e6&&limit<=35e6&&limit%1e6==0&&available[owner]>=amount,"table amount");
+        uint128 collateral=limit*15;require(house>=reserved+collateral,"table collateral");
+        available[owner]-=amount;playerAvailable-=amount;playerLocked+=amount;reserved+=collateral;
+        tables[id]=TableEscrow(owner,amount,collateral,limit,false);
+    }
+    function settleTable(bytes32 id,uint128 spent,uint128 payout,uint128 fee) external onlyGame {
+        TableEscrow storage t=tables[id];require(t.player!=address(0)&&!t.closed&&t.balance>=uint256(spent)+fee,"table balance");
+        require(uint256(payout)<=uint256(spent)+t.collateral,"table payout");
+        uint256 next=uint256(t.balance)+payout-spent-fee;require(next<=type(uint128).max,"table overflow");
+        playerLocked=playerLocked+payout-spent-fee;t.balance=uint128(next);house=house+spent+fee-payout;feeRevenue+=fee;
+        // Replenish collateral from free house funds, never from another player's reserved funds.
+        uint256 other=reserved-t.collateral;uint256 free=house-other;
+        t.collateral=uint128(free<uint256(t.limit)*15?free:uint256(t.limit)*15);reserved=other+t.collateral;
+    }
+    function closeTable(bytes32 id) external onlyGame {
+        TableEscrow storage t=tables[id];require(t.player!=address(0)&&!t.closed,"closed table");t.closed=true;
+        available[t.player]+=t.balance;playerAvailable+=t.balance;playerLocked-=t.balance;reserved-=t.collateral;
+        t.balance=0;t.collateral=0;
+    }
 }

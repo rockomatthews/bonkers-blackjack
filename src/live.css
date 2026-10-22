@@ -51,3 +51,10 @@
 
 .live-seat-number{white-space:nowrap}.live-dock.in-round{grid-template-columns:160px minmax(0,1fr)}.live-dock.in-round .wager-chips{display:none}
 @media(max-width:700px){.live-dock.in-round{grid-template-columns:1fr}.live-dock.in-round .live-dock-balance{grid-column:1/-1}}
+
+.session-round-results{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;min-width:0;outline-offset:3px}.session-round-results p{display:grid;gap:3px;padding:7px 4px;border:1px solid #ffcf2633;border-radius:7px;background:#111f38;font-size:11px;margin:0}.session-round-results span,.session-round-results small{font-size:9px;color:#c3c9d7;font-weight:400}.session-recovery{grid-column:1/-1;max-height:30vh;overflow:auto}.session-recovery p{font-size:11px;line-height:1.5}.session-recovery .live-button{margin:8px 6px 0 0}
+@media(max-width:700px){.session-round-results{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:92px;overflow-x:auto;padding-bottom:4px}.session-round-results p{font-size:10px}.session-round-results small{font-size:8px}}
+
+.live-hand-total sup{font-size:9px;margin-left:3px;vertical-align:super;color:#6d4922}
+
+@media(max-height:500px) and (min-aspect-ratio:14/10){.session-dock{max-height:31vh;overflow:auto;padding:8px 12px;row-gap:4px}.session-dock .live-button{min-height:34px;padding:6px 9px;font-size:11px}.session-dock .live-dock-balance>strong{font-size:18px}.session-dock .live-wager-chip{width:32px;height:32px;font-size:12px}.live-table:has(.session-dock) .live-seat-layout{transform:translateY(-5vh)}.live-table:has(.session-dock) .live-dealer{top:20%}.live-table:has(.session-dock) .live-room-status{top:9%}.live-table:has(.session-dock) .live-table-header>span{visibility:hidden}.session-round-results p{padding:4px;font-size:9px}}

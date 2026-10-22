@@ -88,7 +88,7 @@ async function roundModel(c:Awaited<ReturnType<typeof checked>>,d:NonNullable<Ho
 }
 export async function progress(owner:Address,id:Hex){
  const c=await checked();return houseTransaction(async s=>{const d=s.deployment,r=Object.values(s.rounds).find(r=>r.owner.toLowerCase()===owner.toLowerCase()&&r.id===id);if(!d||!r)throw Error('Round unavailable');
-  for(let n=0;n<1;n++){
+  for(let n=0;n<3;n++){
    const data=await roundModel(c,d,r),{st}=data;const now=(await c.client.getBlock()).timestamp;
    if(st[0]===0){await admit(c,s,BigInt(r.stake??INITIAL_WAGER)*15n,owner,r.id,true);const statusPaused=await c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused'});if(statusPaused)throw Error('Deposits are closed');r.confirmedBlock=String((await send(c,d.game,'offerFor',[r.id,r.commitment,r.owner])).block);break;}
    if(st[0]===5){r.closed=true;break;}
@@ -119,7 +119,7 @@ function activeLimit(){const n=Number(process.env.BONKERS_MAX_ACTIVE_ROUNDS??'10
 /** Serialize admission across BOTH games. Pending offers reserve capacity before dealer gas is spent. */
 async function admit(c:Awaited<ReturnType<typeof checked>>,s:HouseData,required:bigint,owner:Address,exclude?:Hex,allowOwnBlackjack=false,slots=1){
  if(!s.deployment)throw Error('House setup is incomplete');const d=s.deployment,blockNumber=await c.client.getBlockNumber(),now=(await c.client.getBlock({blockNumber})).timestamp;
- const [house,reserved,paused]=await Promise.all([c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'house',blockNumber}),c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'reserved',blockNumber}),c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused',blockNumber})]);if(paused)throw Error('Deposits are closed');let pending=0n,active=0;
+ const [house,reserved,paused]=await Promise.all([c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'house',blockNumber}),c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'reserved',blockNumber}),c.client.readContract({address:d.vault,abi:vaultAbi,functionName:'paused',blockNumber})]);if(paused)throw Error('Deposits are closed');let pending=0n,active=Object.values(s.fastTables??{}).filter(t=>!t.closed).length;
  for(const [kind,records]of [['blackjack',s.rounds],['coin',s.coins??{}]] as const){for(const r of Object.values(records)){if(r.closed||r.id===exclude)continue;
   let phase:number,deadline:bigint,joined:boolean;
   if(kind==='blackjack'){const st=await c.client.readContract({address:d.game,abi:gameAbi,functionName:'state',args:[r.id],blockNumber});phase=st[0];deadline=st[1];joined=st[4].length>0;if(phase===5){r.closed=true;continue;}}
