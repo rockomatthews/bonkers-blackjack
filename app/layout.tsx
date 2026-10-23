@@ -45,16 +45,17 @@ const headingFont = localFont({
   ],
 });
 import "../src/styles.css";
+import SiteShell from "../src/SiteShell";
 export const metadata: Metadata = {
   title: "Bonkers — Blackjack & Toin Coss",
   description:
-    "Play Blackjack and Bonkers Toin Coss with one USDC balance on Base.",
+    "Play Blackjack and site-wide Bonkers Toin Coss flips with USDC on Base.",
   icons: { icon: "/bonkers-blackjack-logo.png" },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth" className={`${bodyFont.variable} ${headingFont.variable}`}>
-      <body>{children}</body>
+      <body><SiteShell>{children}</SiteShell></body>
     </html>
   );
 }

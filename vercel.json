@@ -9,7 +9,7 @@
   "crons": [
     {
       "path": "/api/table-maintenance",
-      "schedule": "*/5 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
