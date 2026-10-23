@@ -48,7 +48,7 @@ import "../src/styles.css";
 export const metadata: Metadata = {
   title: "Bonkers — Blackjack & Toin Coss",
   description:
-    "A little mad. All Bonkers. Blackjack and Toin Coss with one USDC balance on Base.",
+    "Play Blackjack and Bonkers Toin Coss with one USDC balance on Base.",
   icons: { icon: "/bonkers-blackjack-logo.png" },
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
