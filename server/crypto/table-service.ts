@@ -29,13 +29,21 @@ export async function registerTable(owner:Address,hash?:Hex){
  if(id===`0x${'0'.repeat(64)}`)return null;
  const[t,v]=await Promise.all([c.client.readContract({address:d.game,abi:tableAbi,functionName:'tableState',args:[id],blockNumber}),c.client.readContract({address:d.vault,abi:tableVaultAbi,functionName:'tables',args:[id],blockNumber})]);
  if(t[0].toLowerCase()!==owner.toLowerCase()||v[0].toLowerCase()!==owner.toLowerCase())throw Error('Table ownership is still syncing. Retrying automatically.');
- return houseTransaction(s=>{s.fastTables??={};let saved=s.fastTables[id];if(saved?.chainBlock&&BigInt(saved.chainBlock)>blockNumber)return snapshot(saved);if(!saved)saved=s.fastTables[id]={id,owner,key:t[1],balance:String(v[1]),collateral:String(v[2]),limit:String(v[3]),expires:Number(t[3]),nonce:String(t[4]),closed:t[9],lastActivity:Date.now(),hands:[],settled:true};
+ return houseTransaction(s=>{s.fastTables??={};
+  const newer=Object.values(s.fastTables).filter(t=>t.owner.toLowerCase()===owner.toLowerCase()&&BigInt(t.chainBlock??'0')>blockNumber).sort((a,b)=>Number(BigInt(b.chainBlock??'0')-BigInt(a.chainBlock??'0')))[0];if(newer)return snapshot(newer);
+  // ownerTable is authoritative: this contract permits only one open table per owner.
+  for(const other of Object.values(s.fastTables))if(other.id!==id&&other.owner.toLowerCase()===owner.toLowerCase())other.closed=true;
+  let saved=s.fastTables[id];if(saved?.chainBlock&&BigInt(saved.chainBlock)>blockNumber)return snapshot(saved);if(!saved)saved=s.fastTables[id]={id,owner,key:t[1],balance:String(v[1]),collateral:String(v[2]),limit:String(v[3]),expires:Number(t[3]),nonce:String(t[4]),closed:t[9],lastActivity:Date.now(),hands:[],settled:true};
   saved.chainBlock=String(blockNumber);saved.closeAt=Number(t[5]);saved.disputeAt=Number(t[6]);saved.closed=t[9];saved.lastChainRead=Date.now();
   // Only replace chain accounting after our completed batch actually advanced its nonce.
   if(!saved.offer||t[4]>BigInt(saved.offer.nonce)||saved.closed){saved.balance=String(v[1]);saved.collateral=String(v[2]);saved.nonce=String(t[4]);saved.settled=true;saved.settlementRaw=undefined;saved.error=undefined;}
   return snapshot(saved);});
 }
-export async function readTableSession(owner:Address){return houseTransaction(s=>{const t=Object.values(s.fastTables??{}).filter(t=>t.owner.toLowerCase()===owner.toLowerCase()).sort((a,b)=>b.expires-a.expires)[0];return t?snapshot(t):null;});}
+export async function readTableSession(owner:Address){
+ const cached=await houseTransaction(s=>Object.values(s.fastTables??{}).filter(t=>t.owner.toLowerCase()===owner.toLowerCase()).sort((a,b)=>Number(!b.closed)-Number(!a.closed)||b.expires-a.expires)[0]);
+ if(!cached||cached.closed||Date.now()-(cached.lastChainRead??0)>8000)return registerTable(owner);
+ return snapshot(cached);
+}
 export async function offerTableSession(owner:Address,bets:{seat:number;amount:string}[]){
  if(!Array.isArray(bets)||!bets.length||bets.length>7||new Set(bets.map(b=>b.seat)).size!==bets.length)throw Error('Invalid seat wagers');
  const wagers=bets.map(b=>{const stake=parseUSDC(b.amount);if(!Number.isInteger(b.seat)||b.seat<0||b.seat>6||stake<1000000n||stake>5000000n||stake%1000000n)throw Error('Invalid seat wager');return{seat:b.seat,stake};}).sort((a,b)=>a.seat-b.seat);
