@@ -13,7 +13,7 @@ import {typedOffer,typedBet,typedAction,typedAck,typedView,typedClose,verifyTabl
 import LiveBettingTable from './LiveBettingTable';
 import LiveCard from './LiveCards';
 import WalletDialog from './WalletDialog';
-type Props={owner?:Address;authenticated:boolean;status:HouseStatus;available:string;onConnect:()=>void;onCashier:()=>void;onIdleExit:()=>Promise<void>;send:(args:Record<string,unknown>)=>Promise<Hex>;signClose:(id:Hex,nonce:string)=>Promise<Hex>;refresh:()=>Promise<void>};
+type Props={owner?:Address;authenticated:boolean;status:HouseStatus;available:string;onConnect:()=>void;onCashier:()=>void;onIdleExit:()=>Promise<void>;onLeave:()=>void;send:(args:Record<string,unknown>)=>Promise<Hex>;signClose:(id:Hex,nonce:string)=>Promise<Hex>;refresh:()=>Promise<void>};
 const money=(value:bigint)=>formatUSDC(value).replace(/(\.\d{2})0+$/,'$1');
 const empty=()=>Array.from({length:7},()=>[] as number[]);
 // Tab-memory only: survive React remounts without persisting signer material to browser storage.
@@ -21,7 +21,7 @@ const tabKeys=new Map<string,PrivateKeyAccount>();
 const keySlot=(game:Address,owner:Address,key:Address)=>[game,owner,key].map(v=>v.toLowerCase()).join(':');
 const random=()=>`0x${Array.from(crypto.getRandomValues(new Uint8Array(32)),v=>v.toString(16).padStart(2,'0')).join('')}` as Hex;
 async function request<T>(action:string,body?:unknown):Promise<T>{const r=await fetch('/api/house/'+action,{method:body?'POST':'GET',headers:walletRequestHeaders(!!body),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(30000),cache:'no-store'});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error??'Table unavailable'),{status:r.status});return data;}
-export default function SessionTable({owner,authenticated,status,available,onConnect,onCashier,onIdleExit,send,signClose,refresh}:Props){
+export default function SessionTable({owner,authenticated,status,available,onConnect,onCashier,onIdleExit,onLeave,send,signClose,refresh}:Props){
  const game=status.deployment!.game,dealer=status.dealer!;
  const [table,setTable]=useState<FastSnapshot|null>(null),[staged,setStaged]=useState(empty),[last,setLast]=useState(empty),[chip,setChip]=useState(1),[focus,setFocus]=useState(3),[busy,setBusy]=useState(''),[message,setMessage]=useState(''),[entry,setEntry]=useState(false),[amount,setAmount]=useState('10');
  const key=useRef<PrivateKeyAccount|null>(null),current=useRef<FastSnapshot|null>(null),working=useRef(false),activity=useRef(Date.now()),idleClosing=useRef(false),pending=useRef<{action:string;body:unknown}|null>(null),opening=useRef<Hex|null>(null),lastBet=useRef<{id:Hex;entropy:Hex;signature:Hex}|null>(null);
@@ -92,7 +92,17 @@ export default function SessionTable({owner,authenticated,status,available,onCon
  async function move(seat:number,action:number){const t=current.current,k=key.current;if(!t?.offer||!t.entropy||!k)throw Error('This tab no longer has its table key. Use the recovery controls.');const h=t.hands.find(h=>h.seat===seat)!;
   const signature=await k.signTypedData(typedAction(game,hashTypedData(typedBet(game,t.offer,t.entropy)),seat,h.moves.length,action,h.observation));return signed('table-session-act',{id:t.id,seat,index:h.moves.length,move:action,signature});}
  async function act(action:number){if(!active)return;await run('Playing…',async()=>{activity.current=Date.now();await move(active.seat!,action);setMessage('');});}
- async function leave(){const t=current.current,k=key.current?.address.toLowerCase()===t?.key.toLowerCase()?key.current:null;if(!t)return;const signature=k?await k.signTypedData(typedClose(game,t.id,t.nonce)):await signClose(t.id,t.nonce);await accept(await request<FastSnapshot>('table-session-close',{id:t.id,signature}));tabKeys.delete(keySlot(game,t.owner,t.key));key.current=null;await refresh();}
+ async function leave(){
+  const t=await request<FastSnapshot|null>('table-register',{});await accept(t);if(!t)return;
+  if(!t.closed){const k=key.current?.address.toLowerCase()===t.key.toLowerCase()?key.current:null;
+   const signature=k?await k.signTypedData(typedClose(game,t.id,t.nonce)):await signClose(t.id,t.nonce);
+   let closed:FastSnapshot|null;
+   try{closed=await request<FastSnapshot>('table-session-close',{id:t.id,signature});}catch(error){closed=await request<FastSnapshot|null>('table-register',{}).catch(()=>null);if(!closed?.closed)throw error;}
+   await accept(closed);
+   if(!closed?.closed)throw Error('Table close is confirming. Retry Leave table to check its confirmation.');
+  }
+  tabKeys.delete(keySlot(game,t.owner,t.key));key.current=null;await refresh().catch(()=>{});
+ }
  async function finishAndLeave(){let t=current.current;for(let i=0;t?.hands.some(h=>!h.state.done)&&i<32;i++){const h=t.hands.find(h=>!h.state.done)!;t=await move(h.seat,2);}for(let i=0;t&&t.hands.length>0&&!t.settled&&i<25;i++){await new Promise(r=>setTimeout(r,1000));t=await request<FastSnapshot>('table-session-progress',{});await accept(t);}if(t&&t.hands.length>0&&!t.settled)throw Error('Settlement is still pending. Keep this tab open while it finishes.');await leave();}
  function download(){const data=current.current??JSON.parse(localStorage.getItem(receiptKey)??'null');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='bonkers-table-recovery.json';a.click();URL.revokeObjectURL(url);}
  const tableBalance=BigInt(table&&!table.closed?table.balance:available||'0'),inPlay=(table&&!table.settled?table.hands:[]).reduce((n,h)=>n+BigInt(h.stake)+wagerFee(BigInt(h.stake))+h.moves.reduce((v,m)=>v+extraStake(m,BigInt(h.stake)),0n),0n),unlocked=tableBalance-inPlay;
@@ -103,7 +113,7 @@ export default function SessionTable({owner,authenticated,status,available,onCon
   <section className={`live-dock session-dock${playing?' in-round':''}`}><div className="live-dock-balance"><small>{table&&!table.closed?'YOUR TABLE BALANCE':'YOUR PLAYER BALANCE'}</small><strong>{money(tableBalance)} <span>USDC</span></strong><small>USDC · Base{table&&!table.closed&&<> · Cashier: {money(BigInt(available||'0'))} USDC</>}</small></div>
    <fieldset className="wager-chips" disabled={!!busy||playing||settling||needsRecovery}><legend>Select chip · tap a seat</legend>{[1,5].map(v=><button className={`live-wager-chip${chip===v?' selected':''}`} aria-label={`$${v} chip`} aria-pressed={chip===v} key={v} onClick={()=>setChip(v)}>${v}</button>)}</fieldset>
    <div className="live-actions">{!authenticated?<button className="live-button" onClick={onConnect}>Connect wallet</button>:needsRecovery?<button className="live-button" disabled={!!busy||!!table?.entropy&&!table.settled||!!table?.disputeAt} onClick={()=>void restoreTable()}>Restore table access</button>:active? actionOptions(active.state!,BigInt(active.wager!)).map(([action,label])=><button className="live-button" key={action} disabled={!!busy||!!pending.current||!key.current||!legalMoves(active.state!).includes(action)||extraStake(action,BigInt(active.wager!))>unlocked} onClick={()=>void act(action)}>{label}</button>):<><button className="live-button quiet" disabled={!!busy||settling||!last.flat().length} onClick={()=>setStaged(last.map(c=>[...c]))}>Rebet</button><button className="live-button" disabled={!!busy||!!opening.current||!!pending.current||settling||!total||!status.wagersOpen} onClick={()=>void deal()}>Deal</button><button className="live-button quiet" disabled={!!busy||!total} onClick={()=>setStaged(empty())}>Clear</button></>}
-    {authenticated&&table&&!table.closed&&<button className="live-button quiet" disabled={!!busy||playing||settling} onClick={()=>void run('Leaving table…',leave)}>Leave table</button>}{authenticated&&(!table||table.closed)&&<button className="live-button quiet" onClick={()=>setEntry(true)}>Bring to table</button>}
+    {authenticated&&table&&!table.closed&&<button className="live-button quiet" disabled={!!busy||playing||settling} onClick={()=>void run('Leaving table…',async()=>{await leave();onLeave();})}>Leave table</button>}{authenticated&&(!table||table.closed)&&<button className="live-button quiet" onClick={()=>setEntry(true)}>Bring to table</button>}
    </div>
    {!playing&&rows.length>0&&<div className="live-round-results session-round-results" tabIndex={0} role="status" aria-label="Round results">{rows.map(r=>{const stake=BigInt(r.wager!),paid=payouts(r.state!,[stake])[0],h=table!.hands.find(h=>h.seat===r.seat)!,spent=stake+h.moves.reduce((n,m)=>n+extraStake(m,stake),0n);return <p key={r.id}><span>Seat {r.seat!+1}</span><b>{h.state.seats[0].hands.every(h=>h.surrendered)?'Surrender':paid>spent?'You won':paid===spent?'Push':'House won'}</b><small>{money(paid)} USDC returned</small></p>;})}</div>}
    {needsRecovery&&<p className="live-message">Your {money(BigInt(table!.balance))} USDC is held at this table. Restore access with a wallet signature to return it to your cashier, then confirm reopening the table. No additional deposit is needed.</p>}
