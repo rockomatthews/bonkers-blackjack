@@ -27,6 +27,14 @@ export async function POST(request:Request,{params}:{params:Promise<{action:stri
   const text=await request.text();if(text.length>8192)return new Response(null,{status:413});const b=JSON.parse(text);
   if(action==='challenge'){if(typeof b.owner!=='string'||!isAddress(b.owner))throw Error('Invalid wallet');return Response.json(await challenge(b.owner as Address,origin),{headers});}
   if(action==='login'){if(!isAddress(b.owner)||typeof b.nonce!=='string'||!isHex(b.signature))throw Error('Invalid sign-in');const token=await login(b.owner,b.nonce,b.signature,origin);const jar=await cookies(),options={httpOnly:true,sameSite:'strict' as const,secure:new URL(origin).protocol==='https:',path:'/',maxAge:3600};jar.set('bonkers-wallet',token,options);jar.set('bonkers-wallet-'+b.owner.toLowerCase(),token,options);return Response.json({connected:true},{headers});}
+  if(action==='logout'){
+   const jar=await cookies(),selected=request.headers.get('x-bonkers-wallet'),legacy=jar.get('bonkers-wallet')?.value;
+   if(selected&&!isAddress(selected))throw Error('Invalid wallet selector');
+   const legacyOwner=legacy?await session(legacy,origin).catch(()=>null):null;
+   const account=selected??legacyOwner;if(account)jar.delete('bonkers-wallet-'+account.toLowerCase());
+   if(!legacyOwner||legacyOwner.toLowerCase()===account?.toLowerCase())jar.delete('bonkers-wallet');
+   return Response.json({signedOut:true},{headers});
+  }
   const owner=await requestOwner(origin,request);
   if(action==='table-register'){if(b.hash!==undefined&&(!isHex(b.hash)||b.hash.length!==66))throw Error('Invalid table opening receipt');return Response.json(await registerTable(owner,b.hash),{headers});}
   if(action==='table-session-offer')return Response.json(await offerTableSession(owner,b.bets),{headers});
